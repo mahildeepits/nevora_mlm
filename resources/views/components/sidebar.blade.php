@@ -102,6 +102,14 @@
                     </a>
                 </li>
 
+                {{-- Business Plan Presentation PDF --}}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ route('public.presentation') }}" target="_blank">
+                        <i class="fa-solid fa-file-pdf icon text-warning"></i>
+                        <span class="item-name fw-bold">Plan PDF</span>
+                    </a>
+                </li>
+
                 {{-- 4. Announcements & News --}}
                 <li class="nav-item">
                     <a class="nav-link {{ request()->routeIs('member.announcements*') ? 'active' : '' }}" href="{{ route('member.announcements.index') }}">

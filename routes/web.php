@@ -7,6 +7,11 @@ Route::get('/', function () {
     return redirect()->route('member.login.form');
 });
 
+// Direct Public Presentation Deck Link
+Route::get('/presentation', function () {
+    return response()->file(public_path('docs/NEVORA_Business_Plan_Presentation.pdf'));
+})->name('public.presentation');
+
 // Member Authentication Routes
 Route::controller(AuthController::class)->group(function () {
     Route::get('login', 'loginForm')->name('member.login.form');

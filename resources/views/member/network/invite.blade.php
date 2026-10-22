@@ -73,6 +73,32 @@
             </div>
         </div>
 
+        {{-- Business Plan PDF Presentation Card --}}
+        <!-- <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border: 1px solid rgba(56, 189, 248, 0.25) !important;">
+            <div class="card-body p-3 p-md-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-warning bg-opacity-10 text-warning rounded-3 p-2.5 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; min-width: 48px;">
+                        <i class="fa-solid fa-file-pdf font-24"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-1">
+                            <h6 class="fw-bold mb-0 text-white font-14">Official Business Plan (PDF)</h6>
+                            <span class="badge bg-primary-subtle text-primary font-10 rounded-pill">12 Slides</span>
+                        </div>
+                        <p class="text-white-50 font-11 mb-2 mt-1">Download and share the presentation deck with prospective leads & team members.</p>
+                        <div class="d-flex gap-2">
+                            <a href="{{ route('public.presentation') }}" target="_blank" class="btn btn-sm btn-outline-info rounded-pill px-3 font-11 fw-bold">
+                                <i class="fa-solid fa-eye me-1"></i> View Deck
+                            </a>
+                            <a href="{{ asset('docs/NEVORA_Business_Plan_Presentation.pdf') }}" download="NEVORA_Business_Plan_Presentation.pdf" class="btn btn-sm btn-warning text-dark rounded-pill px-3 font-11 fw-bold">
+                                <i class="fa-solid fa-download me-1"></i> Download PDF
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> -->
+
         {{-- Directs KPI Cards --}}
         <div class="row g-3">
             <div class="col-6">

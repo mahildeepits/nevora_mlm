@@ -1,0 +1,95 @@
+/* 
+    ADMIN CUSTOM STYLE
+*/
+
+:root {
+    --afs: 12px;
+    --abr: 4px;
+}
+
+.nav-link .caption .caption-title,
+.nav-link .caption .caption-sub-title,
+.nav-link svg {
+    font-size: var(--afs) !important;
+}
+
+.dual-horizontal .navbar-nav .nav-link {
+    font-size: var(--afs) !important;
+    padding: .3rem 1.2rem;
+    border-radius: var(--abr);
+    position: relative !important;
+    transition: all 0.3s ease;
+}
+
+/* Base Styles for Gradient line and Central dot */
+.dual-horizontal .navbar-nav .nav-item .nav-link::after,
+.dual-horizontal .navbar-nav .nav-item .nav-link::before {
+    content: "" !important;
+    position: absolute !important;
+    opacity: 0 !important;
+    transition: opacity 0.3s ease !important;
+}
+
+/* Gradient line styling */
+.dual-horizontal .navbar-nav .nav-item .nav-link::after {
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 1px !important;
+    background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 1) 50%, rgba(255, 255, 255, 0) 100%) !important;
+    border: none !important;
+}
+
+/* Central dot styling */
+.dual-horizontal .navbar-nav .nav-item .nav-link::before {
+    bottom: -1px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 4px !important;
+    height: 3px !important;
+    background: #ffffff !important;
+    border-radius: 50% !important;
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Hover and Active State Visibility */
+.dual-horizontal .navbar-nav .nav-item .nav-link:hover,
+.dual-horizontal .navbar-nav .nav-item .nav-link.active {
+    color: #ffffff !important;
+    border: none !important;
+    background: transparent !important;
+}
+
+/* Show elements on hover OR active */
+.dual-horizontal .navbar-nav .nav-item .nav-link:hover::after,
+.dual-horizontal .navbar-nav .nav-item .nav-link.active::after,
+.dual-horizontal .navbar-nav .nav-item .nav-link:hover::before,
+.dual-horizontal .navbar-nav .nav-item .nav-link.active::before {
+    opacity: 1 !important;
+}
+
+@media screen and (max-width: 1199.98px) {
+
+    .dual-horizontal .navbar-nav .nav-item .nav-link:hover,
+    .dual-horizontal .navbar-nav .nav-item .nav-link.active {
+        color: var(--bs-body-color) !important;
+    }
+
+    .navbar .hover-nav .nav-item:hover .dropdown-menu {
+        width: 80% !important;
+    }
+}
+
+/* LIVE CLOCK STYLES */
+.live-clock-container {
+    transition: all 0.3s ease;
+}
+
+.live-clock-container #live-date {
+    letter-spacing: 0.2px;
+}
+
+.live-clock-container #live-time {
+    letter-spacing: 0.5px;
+    font-family: 'Courier New', Courier, monospace;
+}

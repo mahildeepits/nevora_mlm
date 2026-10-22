@@ -1,0 +1,24 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+
+Route::get('/', function () {
+    return redirect()->route('member.login.form');
+});
+
+// Member Authentication Routes
+Route::controller(AuthController::class)->group(function () {
+    Route::get('login', 'loginForm')->name('member.login.form');
+    Route::post('login', 'login')->name('member.login');
+    Route::get('register', 'registerForm')->name('member.register.form');
+    Route::post('register', 'register')->name('member.register');
+    Route::post('register/send-otp', 'sendRegisterOtp')->name('member.register.send_otp');
+    Route::get('logout', 'logout')->name('member.logout');
+});
+
+// Member Routes Include
+require __DIR__ . '/member.php';
+
+// Admin Routes Include
+require __DIR__ . '/admin.php';

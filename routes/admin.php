@@ -42,10 +42,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Unified Transaction Ledger & Reports
         Route::get('/transactions', [TransactionReportController::class, 'index'])->name('transactions.index');
 
-        // System Settings & Software Data Reset
+        // System Settings, SMTP Configuration & Software Data Reset
         Route::controller(SettingController::class)->prefix('settings')->name('settings.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/update', 'update')->name('update');
+            Route::post('/update-smtp', 'updateSmtp')->name('update_smtp');
+            Route::post('/test-email', 'sendTestEmail')->name('test_email');
             Route::post('/reset-database', 'resetDatabase')->name('reset_database');
         });
     });

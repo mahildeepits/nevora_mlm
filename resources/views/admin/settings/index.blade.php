@@ -21,12 +21,17 @@
                 {{-- Navigation Tabs --}}
                 <ul class="nav nav-tabs card-header-tabs" id="settingsTabs" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link active fw-bold py-3 px-4" id="company-tab" data-bs-toggle="tab" href="#company-pane" role="tab">
+                        <a class="nav-link {{ request('tab') != 'email' && request('tab') != 'reset' ? 'active' : '' }} fw-bold py-3 px-4" id="company-tab" data-bs-toggle="tab" href="#company-pane" role="tab">
                             <i class="fa-solid fa-building me-2 text-primary"></i> Company & Support Details
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link fw-bold py-3 px-4 text-danger" id="reset-tab" data-bs-toggle="tab" href="#reset-pane" role="tab">
+                        <a class="nav-link {{ request('tab') == 'email' ? 'active' : '' }} fw-bold py-3 px-4" id="email-tab" data-bs-toggle="tab" href="#email-pane" role="tab">
+                            <i class="fa-solid fa-envelope-circle-check me-2 text-primary"></i> Email & Hostinger SMTP
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request('tab') == 'reset' ? 'active' : '' }} fw-bold py-3 px-4 text-danger" id="reset-tab" data-bs-toggle="tab" href="#reset-pane" role="tab">
                             <i class="fa-solid fa-triangle-exclamation text-danger me-2"></i> Software Data Reset
                         </a>
                     </li>
@@ -37,7 +42,7 @@
                 <div class="tab-content" id="settingsTabsContent">
                     
                     {{-- TAB 1: Company Profile & Support Details --}}
-                    <div class="tab-pane fade show active" id="company-pane" role="tabpanel">
+                    <div class="tab-pane fade {{ request('tab') != 'email' && request('tab') != 'reset' ? 'show active' : '' }}" id="company-pane" role="tabpanel">
                         <form action="{{ route('admin.settings.update') }}" method="POST">
                             @csrf
                             
@@ -137,8 +142,170 @@
                         </form>
                     </div>
 
-                    {{-- TAB 2: Software Data Reset (Danger Zone) --}}
-                    <div class="tab-pane fade" id="reset-pane" role="tabpanel">
+                    {{-- TAB 2: Email & Hostinger SMTP Settings --}}
+                    <div class="tab-pane fade {{ request('tab') == 'email' ? 'show active' : '' }}" id="email-pane" role="tabpanel">
+                        <div class="row g-4">
+                            
+                            {{-- Status Alert / Card --}}
+                            <div class="col-12">
+                                <div class="p-3.5 rounded-3 border border-primary border-opacity-25 bg-primary bg-opacity-10 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary text-white p-2.5 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+                                            <i class="fa-solid fa-server font-20"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold text-primary mb-0.5">Hostinger SMTP Mailer Status</h6>
+                                            <p class="text-muted small mb-0">
+                                                Connected to <strong>{{ $mailConfig['host'] ?? 'smtp.hostinger.com' }}:{{ $mailConfig['port'] ?? 465 }}</strong> via <strong>{{ strtoupper($mailConfig['scheme'] ?? 'SMTPS') }}</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        @if(!empty($mailConfig['has_password']))
+                                            <span class="badge bg-success-subtle text-success px-3 py-2 rounded-pill font-12 fw-bold">
+                                                <i class="fa-solid fa-shield-check me-1"></i> Mailbox Password Configured
+                                            </span>
+                                        @else
+                                            <span class="badge bg-warning-subtle text-warning px-3 py-2 rounded-pill font-12 fw-bold">
+                                                <i class="fa-solid fa-triangle-exclamation me-1"></i> Password Needed to Send
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Left Column: SMTP Configuration Form --}}
+                            <div class="col-lg-7">
+                                <div class="card border border-light-subtle rounded-4 h-100 shadow-none">
+                                    <div class="card-body p-4">
+                                        <h6 class="fw-bold text-dark text-uppercase font-12 mb-3">
+                                            <i class="fa-solid fa-sliders me-1.5 text-primary"></i> Hostinger SMTP Connection Details
+                                        </h6>
+                                        <p class="text-muted small mb-4">
+                                            Configure the outgoing SMTP credentials for <strong>{{ $mailConfig['username'] ?? 'info@nevora.world' }}</strong> to deliver customer OTPs and notifications.
+                                        </p>
+
+                                        <form action="{{ route('admin.settings.update_smtp') }}" method="POST">
+                                            @csrf
+                                            
+                                            <div class="row g-3">
+                                                <div class="col-md-8">
+                                                    <label class="form-label fw-bold font-13">SMTP Host <span class="text-danger">*</span></label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-light"><i class="fa-solid fa-network-wired text-muted"></i></span>
+                                                        <input type="text" name="mail_host" class="form-control" value="{{ old('mail_host', $mailConfig['host'] ?? 'smtp.hostinger.com') }}" required>
+                                                    </div>
+                                                    <small class="text-muted font-11">Hostinger SMTP Server (default: smtp.hostinger.com)</small>
+                                                </div>
+
+                                                <div class="col-md-4">
+                                                    <label class="form-label fw-bold font-13">Port <span class="text-danger">*</span></label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-light"><i class="fa-solid fa-hashtag text-muted"></i></span>
+                                                        <input type="number" name="mail_port" class="form-control" value="{{ old('mail_port', $mailConfig['port'] ?? 465) }}" required>
+                                                    </div>
+                                                    <small class="text-muted font-11">465 (SSL) / 587 (TLS)</small>
+                                                </div>
+
+                                                <div class="col-12">
+                                                    <label class="form-label fw-bold font-13">Email Address / Username <span class="text-danger">*</span></label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-light"><i class="fa-solid fa-envelope text-muted"></i></span>
+                                                        <input type="email" name="mail_username" class="form-control" value="{{ old('mail_username', $mailConfig['username'] ?? 'info@nevora.world') }}" required>
+                                                    </div>
+                                                    <small class="text-muted font-11">Your full Hostinger webmail address.</small>
+                                                </div>
+
+                                                <div class="col-12">
+                                                    <label class="form-label fw-bold font-13">
+                                                        Email Password 
+                                                        @if(!empty($mailConfig['has_password']))
+                                                            <span class="badge bg-success-subtle text-success ms-1 font-10">Configured</span>
+                                                        @else
+                                                            <span class="badge bg-danger-subtle text-danger ms-1 font-10">Required</span>
+                                                        @endif
+                                                    </label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-light"><i class="fa-solid fa-lock text-muted"></i></span>
+                                                        <input type="password" name="mail_password" class="form-control" placeholder="{{ !empty($mailConfig['has_password']) ? '•••••••••••• (Leave blank to keep current)' : 'Enter your Hostinger email password' }}">
+                                                    </div>
+                                                    <small class="text-muted font-11">The password you set when creating this email on Hostinger hPanel.</small>
+                                                </div>
+
+                                                <div class="col-md-6">
+                                                    <label class="form-label fw-bold font-13">Sender Address (From) <span class="text-danger">*</span></label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-light"><i class="fa-solid fa-paper-plane text-muted"></i></span>
+                                                        <input type="email" name="mail_from_address" class="form-control" value="{{ old('mail_from_address', $mailConfig['from_address'] ?? 'info@nevora.world') }}" required>
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-md-6">
+                                                    <label class="form-label fw-bold font-13">Sender Name <span class="text-danger">*</span></label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-light"><i class="fa-solid fa-id-badge text-muted"></i></span>
+                                                        <input type="text" name="mail_from_name" class="form-control" value="{{ old('mail_from_name', $mailConfig['from_name'] ?? 'NEVORA') }}" required>
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-12 mt-3 text-end">
+                                                    <button type="submit" class="btn btn-primary px-4 py-2 rounded-pill fw-bold shadow-sm">
+                                                        <i class="fa-solid fa-floppy-disk me-1.5"></i> Save SMTP Credentials
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Right Column: Live SMTP Test Tool --}}
+                            <div class="col-lg-5">
+                                <div class="card border border-light-subtle rounded-4 h-100 shadow-none bg-light bg-opacity-40">
+                                    <div class="card-body p-4">
+                                        <h6 class="fw-bold text-dark text-uppercase font-12 mb-3">
+                                            <i class="fa-solid fa-vial me-1.5 text-success"></i> Live Test Email Sender
+                                        </h6>
+                                        <p class="text-muted small mb-3" style="line-height: 1.6;">
+                                            Send a live test verification OTP email to any email address to verify that your Hostinger SMTP credentials and SSL handshake on port 465 are working.
+                                        </p>
+
+                                        <form action="{{ route('admin.settings.test_email') }}" method="POST">
+                                            @csrf
+                                            
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold font-13">Recipient Email Address <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text bg-white"><i class="fa-solid fa-at text-muted"></i></span>
+                                                    <input type="email" name="test_email" class="form-control" placeholder="e.g. yourname@gmail.com" required>
+                                                </div>
+                                                <small class="text-muted font-11">Enter your personal email to receive the test OTP message.</small>
+                                            </div>
+
+                                            <div class="d-grid mb-3">
+                                                <button type="submit" class="btn btn-outline-primary py-2.5 rounded-pill fw-bold shadow-sm">
+                                                    <i class="fa-solid fa-paper-plane me-1.5"></i> Send Live Test Email
+                                                </button>
+                                            </div>
+
+                                            <div class="p-3 rounded-3 bg-white border border-light-subtle">
+                                                <div class="d-flex align-items-center gap-2 mb-1.5">
+                                                    <i class="fa-solid fa-circle-info text-primary font-14"></i>
+                                                    <span class="fw-bold font-12 text-dark">CLI Command Also Available:</span>
+                                                </div>
+                                                <code class="d-block p-2 rounded bg-dark text-light font-11 font-monospace">
+                                                    php artisan mail:test recipient@email.com
+                                                </code>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- TAB 3: Software Data Reset (Danger Zone) --}}
+                    <div class="tab-pane fade {{ request('tab') == 'reset' ? 'show active' : '' }}" id="reset-pane" role="tabpanel">
                         <div class="row justify-content-center">
                             <div class="col-12 col-xl-10">
                                 

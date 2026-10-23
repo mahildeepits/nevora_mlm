@@ -1,0 +1,8 @@
+vendor/
+.env
+.htaccess
+storage/framework/
+storage/logs/
+storage/app/
+bootstrap/cache/
+.vscode/

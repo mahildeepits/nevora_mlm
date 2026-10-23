@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class SettingController extends Controller
 {
@@ -32,7 +33,18 @@ class SettingController extends Controller
             'total_positions' => SlotPosition::count(),
         ];
 
-        return view('admin.settings.index', compact('settings', 'stats'));
+        $mailConfig = [
+            'mailer' => config('mail.default', env('MAIL_MAILER', 'smtp')),
+            'host' => config('mail.mailers.smtp.host', env('MAIL_HOST', 'smtp.hostinger.com')),
+            'port' => config('mail.mailers.smtp.port', env('MAIL_PORT', 465)),
+            'username' => config('mail.mailers.smtp.username', env('MAIL_USERNAME', 'info@nevora.world')),
+            'has_password' => !empty(env('MAIL_PASSWORD')),
+            'from_address' => config('mail.from.address', env('MAIL_FROM_ADDRESS', 'info@nevora.world')),
+            'from_name' => config('mail.from.name', env('MAIL_FROM_NAME', 'NEVORA')),
+            'scheme' => config('mail.mailers.smtp.scheme', env('MAIL_SCHEME', 'smtps')),
+        ];
+
+        return view('admin.settings.index', compact('settings', 'stats', 'mailConfig'));
     }
 
     /**
@@ -66,6 +78,101 @@ class SettingController extends Controller
         }
 
         return redirect()->route('admin.settings.index')->with('success', 'Company & platform settings have been updated successfully.');
+    }
+
+    /**
+     * Update SMTP Mailer Configuration in .env
+     */
+    public function updateSmtp(Request $request)
+    {
+        $request->validate([
+            'mail_host' => 'required|string|max:190',
+            'mail_port' => 'required|numeric',
+            'mail_username' => 'required|string|max:190',
+            'mail_password' => 'nullable|string|max:190',
+            'mail_from_address' => 'required|email|max:190',
+            'mail_from_name' => 'required|string|max:100',
+        ]);
+
+        $envUpdates = [
+            'MAIL_MAILER' => 'smtp',
+            'MAIL_SCHEME' => ((int)$request->mail_port === 465) ? 'smtps' : 'smtp',
+            'MAIL_HOST' => $request->mail_host,
+            'MAIL_PORT' => $request->mail_port,
+            'MAIL_USERNAME' => $request->mail_username,
+            'MAIL_FROM_ADDRESS' => $request->mail_from_address,
+            'MAIL_FROM_NAME' => $request->mail_from_name,
+        ];
+
+        if ($request->filled('mail_password')) {
+            $envUpdates['MAIL_PASSWORD'] = $request->mail_password;
+        }
+
+        $this->updateEnvFile($envUpdates);
+
+        try {
+            Artisan::call('config:clear');
+        } catch (\Throwable $th) {}
+
+        return redirect()->route('admin.settings.index', ['tab' => 'email'])->with('success', 'Hostinger SMTP settings updated successfully!');
+    }
+
+    /**
+     * Send a Live Test Email to verify SMTP setup.
+     */
+    public function sendTestEmail(Request $request)
+    {
+        $request->validate([
+            'test_email' => 'required|email',
+        ]);
+
+        $targetEmail = $request->test_email;
+        $otpSample = (string) mt_rand(100000, 999999);
+
+        try {
+            Mail::mailer('smtp')->send('emails.otp', [
+                'otpCode' => $otpSample,
+                'actionType' => 'test'
+            ], function ($message) use ($targetEmail) {
+                $message->to($targetEmail)
+                        ->subject('NEVORA SMTP Test Verification Email');
+            });
+
+            return redirect()->route('admin.settings.index', ['tab' => 'email'])
+                ->with('success', "Test email was successfully sent to {$targetEmail} via Hostinger SMTP! Please check the recipient inbox.");
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.settings.index', ['tab' => 'email'])
+                ->with('error', "Failed to send email via SMTP: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Safely update key-value pairs in the .env file.
+     */
+    protected function updateEnvFile(array $values): void
+    {
+        $envPath = base_path('.env');
+        if (!file_exists($envPath)) {
+            return;
+        }
+
+        $envContent = file_get_contents($envPath);
+
+        foreach ($values as $key => $value) {
+            $formattedValue = (str_contains((string)$value, ' ') || str_contains((string)$value, '#') || str_contains((string)$value, '$')) 
+                ? '"' . addcslashes((string)$value, '"\\$') . '"' 
+                : (string)$value;
+
+            $pattern = "/^{$key}=.*/m";
+
+            if (preg_match($pattern, $envContent)) {
+                $envContent = preg_replace($pattern, "{$key}={$formattedValue}", $envContent);
+            } else {
+                $envContent .= "\n{$key}={$formattedValue}";
+            }
+        }
+
+        file_put_contents($envPath, $envContent);
     }
 
     /**

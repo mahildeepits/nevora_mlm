@@ -30,10 +30,11 @@ class OtpService
             'expires_at' => now()->addMinutes(15),
         ]);
 
-        // Send via Laravel Mail (or fallback to log if mail server not configured)
+        // Send via Laravel Mail (using branded HTML email template)
         try {
-            Mail::raw("Your NEVORA verification code is: {$otpCode}. It will expire in 15 minutes.", function ($message) use ($email) {
-                $message->to($email)->subject('NEVORA Verification OTP');
+            Mail::send('emails.otp', ['otpCode' => $otpCode, 'actionType' => $actionType], function ($message) use ($email) {
+                $message->to($email)
+                        ->subject('NEVORA Verification Code');
             });
         } catch (\Throwable $th) {
             Log::info("OTP for {$email} ({$actionType}): {$otpCode}. Mail sending skipped/logged: " . $th->getMessage());

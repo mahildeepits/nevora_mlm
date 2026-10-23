@@ -92,7 +92,15 @@ class SettingController extends Controller
             'mail_password' => 'nullable|string|max:190',
             'mail_from_address' => 'required|email|max:190',
             'mail_from_name' => 'required|string|max:100',
+            'email_logo_url' => 'nullable|url|max:255',
         ]);
+
+        if ($request->has('email_logo_url')) {
+            Setting::updateOrCreate(
+                ['key' => 'email_logo_url'],
+                ['value' => $request->email_logo_url ?? '']
+            );
+        }
 
         $envUpdates = [
             'MAIL_MAILER' => 'smtp',

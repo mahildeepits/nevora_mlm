@@ -248,6 +248,18 @@
                                                     </div>
                                                 </div>
 
+                                                <div class="col-12">
+                                                    <label class="form-label fw-bold font-13">Email Header Logo Public URL (Optional)</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-light"><i class="fa-solid fa-link text-muted"></i></span>
+                                                        <input type="url" name="email_logo_url" class="form-control" value="{{ old('email_logo_url', $settings['email_logo_url'] ?? '') }}" placeholder="https://nevora.world/assets/images/logo-email.png">
+                                                    </div>
+                                                    <small class="text-muted font-11">
+                                                        <i class="fa-solid fa-circle-info text-primary me-1"></i>
+                                                        Provide an online HTTPS URL to load your logo without embedding file attachments. This keeps emails pure HTML with <strong>0 attachment badges</strong> in Gmail.
+                                                    </small>
+                                                </div>
+
                                                 <div class="col-12 mt-3 text-end">
                                                     <button type="submit" class="btn btn-primary px-4 py-2 rounded-pill fw-bold shadow-sm">
                                                         <i class="fa-solid fa-floppy-disk me-1.5"></i> Save SMTP Credentials

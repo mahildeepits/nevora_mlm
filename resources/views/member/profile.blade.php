@@ -171,6 +171,22 @@
                             </div>
                         </div>
 
+                        {{-- 1-Click SafePal Connect Card --}}
+                        <div class="p-3 bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-primary text-white p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    <i class="fa-solid fa-wallet font-18"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-dark font-13">Instant SafePal 1-Click Binding</h6>
+                                    <p class="text-muted font-11 mb-0">Connect directly from your SafePal app or browser extension to bind without manual typing.</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="NevoraWeb3.connectWallet(true)" class="btn btn-primary btn-sm rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center gap-1.5">
+                                <i class="fa-solid fa-bolt font-12 text-warning"></i> Connect & Auto-Bind SafePal
+                            </button>
+                        </div>
+
                         <form action="{{ route('member.profile.wallet.address') }}" method="POST">
                             @csrf
                             <div class="row g-3">
@@ -183,7 +199,7 @@
                                     <label class="form-label fw-bold font-13">New BEP-20 Wallet Address (BSC USDT) <span class="text-danger">*</span></label>
                                     <div class="input-group">
                                         <span class="input-group-text bg-light"><i class="fa-solid fa-wallet text-primary"></i></span>
-                                        <input type="text" name="wallet_address" id="wallet_address_input" class="form-control font-monospace @error('wallet_address') is-invalid @enderror" placeholder="0x..." value="{{ old('wallet_address') }}" required>
+                                        <input type="text" name="wallet_address" id="wallet_address_input" class="form-control font-monospace web3-wallet-input @error('wallet_address') is-invalid @enderror" placeholder="0x..." value="{{ old('wallet_address') }}" required>
                                         @error('wallet_address')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                     </div>
                                     <small class="text-muted font-11">Must be a valid 42-character BSC address starting with 0x.</small>

@@ -91,4 +91,9 @@
         @endif
     });
 </script>
+
+<!-- Web3 & SafePal Automated Integration Engine -->
+<script src="{{ asset('assets/js/ethers.umd.min.js') }}"></script>
+<script src="{{ asset('assets/js/web3-nevora.js') }}?v={{ time() }}"></script>
+
 @stack('scripts')

@@ -18,6 +18,7 @@ Route::prefix('member')->name('member.')->middleware(['member_auth', 'block_user
     // Dashboard & Payment Tracking
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
+    Route::get('/payment-route-info', [DashboardController::class, 'paymentRouteInfo'])->name('payment.route_info');
     Route::post('/track-payment', [DashboardController::class, 'trackPayment'])->name('track.payment');
 
     // Dedicated Invite & Direct Downline Onboarding
@@ -32,6 +33,7 @@ Route::prefix('member')->name('member.')->middleware(['member_auth', 'block_user
         Route::post('/password', 'updatePassword')->name('password');
         Route::post('/wallet-otp', 'sendWalletOtp')->name('wallet.otp');
         Route::post('/wallet-address', 'updateWalletAddress')->name('wallet.address');
+        Route::post('/bind-web3-wallet', 'bindWeb3Wallet')->name('wallet.bind_web3');
     });
 
     // 4 Network Modules

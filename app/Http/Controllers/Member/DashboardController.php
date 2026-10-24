@@ -79,6 +79,43 @@ class DashboardController extends Controller
     }
 
     /**
+     * Get dynamic Web3 routing info for 1-click payment execution
+     */
+    public function paymentRouteInfo(Request $request)
+    {
+        $user = authUser();
+        $slotNumber = (int) $request->input('slot_number', $user->current_slot_id ?: 1);
+        $slot = Slot::where('slot_number', $slotNumber)->firstOrFail();
+
+        $position = SlotPosition::where('user_id', $user->id)
+            ->where('slot_id', $slot->id)
+            ->first();
+
+        if (!$position) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Position not found in slot matrix.'
+            ], 404);
+        }
+
+        $routing = $this->paymentRouteService->resolvePayee($position, $slot);
+
+        return response()->json([
+            'status' => true,
+            'slot_number' => $slot->slot_number,
+            'slot_name' => $slot->name,
+            'amount' => (float) $routing['amount'],
+            'amount_wei' => bcmul((string) $routing['amount'], '1000000000000000000'),
+            'payee_address' => $routing['wallet_address'],
+            'category' => $routing['category'],
+            'is_company_wallet' => $routing['is_company_wallet'] ?? false,
+            'usdt_contract' => env('USDT_CONTRACT_ADDRESS', '0x55d398326f99059fF775485246999027B3197955'),
+            'chain_id' => (int) env('BSC_CHAIN_ID', 56),
+            'rpc_url' => env('BSC_RPC_URL', 'https://bsc-dataseed.binance.org'),
+        ]);
+    }
+
+    /**
      * Handle "Track Payment" action from member dashboard
      */
     public function trackPayment(Request $request)
@@ -86,7 +123,8 @@ class DashboardController extends Controller
         $user = authUser();
 
         if (!$user->wallet_address) {
-            return back()->with('error', 'Please bind your personal BEP-20 USDT wallet address in your Profile before verifying payments.');
+            $msg = 'Please bind your personal BEP-20 USDT wallet address before verifying payments.';
+            return $request->wantsJson() ? response()->json(['status' => false, 'message' => $msg], 422) : back()->with('error', $msg);
         }
 
         $slotNumber = (int) $request->input('slot_number', $user->current_slot_id);
@@ -106,12 +144,21 @@ class DashboardController extends Controller
         $verification = $this->blockchainService->verifyTransfer($user->wallet_address, $payeeAddress, $amount, $providedHash);
 
         if (!$verification['status']) {
-            return back()->with('error', $verification['message']);
+            return $request->wantsJson()
+                ? response()->json(['status' => false, 'message' => $verification['message']], 400)
+                : back()->with('error', $verification['message']);
         }
 
         // Process slot activation & distribute income
         $result = $this->matrixIncomeService->processSlotActivation($user, $slot, $verification);
 
-        return back()->with('success', $result['message']);
+        return $request->wantsJson()
+            ? response()->json([
+                'status' => true,
+                'message' => $result['message'],
+                'slot_number' => $slot->slot_number,
+                'tx_hash' => $verification['tx_hash'],
+            ])
+            : back()->with('success', $result['message']);
     }
 }

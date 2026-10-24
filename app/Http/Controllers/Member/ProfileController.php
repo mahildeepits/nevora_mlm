@@ -138,4 +138,52 @@ class ProfileController extends Controller
 
         return back()->with('success', 'BEP-20 USDT wallet address linked successfully!');
     }
+
+    /**
+     * 1-Click Web3 Wallet Binding (Direct from SafePal / Web3Modal)
+     */
+    public function bindWeb3Wallet(Request $request)
+    {
+        $user = authUser();
+
+        $validator = Validator::make($request->all(), [
+            'wallet_address' => [
+                'required',
+                'regex:/^0x[a-fA-F0-9]{40}$/',
+            ],
+        ], [
+            'wallet_address.regex' => 'Please provide a valid BEP-20 wallet address.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        $address = strtolower(trim($request->wallet_address));
+
+        // Check if address is already registered to someone else
+        $exists = User::where('wallet_address', $address)
+            ->where('id', '!=', $user->id)
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'status' => false,
+                'message' => 'This wallet address is already bound to another member account.'
+            ], 422);
+        }
+
+        $user->wallet_address = $address;
+        $user->save();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'SafePal wallet linked successfully!',
+            'wallet_address' => $address,
+            'masked_address' => maskAddress($address),
+        ]);
+    }
 }

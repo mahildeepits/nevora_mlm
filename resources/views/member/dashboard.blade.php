@@ -103,57 +103,40 @@
                     </div>
 
                     <div class="card-body p-3 p-md-4">
-                        @if(!$user->wallet_address)
-                            {{-- High-Priority Alert if Wallet Not Linked --}}
-                            <div class="p-3 rounded-4 bg-warning bg-opacity-10 border border-warning border-opacity-25 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="rounded-circle bg-warning text-dark p-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; min-width: 36px;">
-                                        <i class="fa-solid fa-triangle-exclamation font-16"></i>
-                                    </div>
-                                    <div>
-                                        <h6 class="fw-bold mb-0 text-dark font-13">Link your personal BEP-20 Wallet Address</h6>
-                                        <p class="text-muted font-11 mb-0">Our on-chain tracking engine requires your sender wallet to automatically verify your transfer.</p>
-                                    </div>
-                                </div>
-                                <a href="{{ route('member.profile.index') }}" class="btn btn-primary btn-sm rounded-pill px-4 fw-bold shadow-sm">
-                                    <i class="fa-solid fa-link me-1"></i> Link Wallet Now
-                                </a>
+                        {{-- Wallet Connection Bar --}}
+                        <div id="connected-wallet-pill" class="p-2.5 px-3 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2 {{ !$user->wallet_address ? 'd-none' : '' }}">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="fa-solid fa-circle-check text-success font-14"></i>
+                                <span class="text-muted font-12 fw-semibold">Paying from connected SafePal:</span>
+                                <span class="font-monospace fw-bold font-12 text-dark wallet-text">{{ $user->wallet_address ? maskAddress($user->wallet_address) : '' }}</span>
                             </div>
-                        @else
-                            {{-- Wallet Connected Confirmation Pill --}}
-                            <div class="p-2.5 px-3 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                                <div class="d-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-circle-check text-success font-14"></i>
-                                    <span class="text-muted font-12 fw-semibold">Paying from connected wallet:</span>
-                                    <span class="font-monospace fw-bold font-12 text-dark">{{ maskAddress($user->wallet_address) }}</span>
+                            <button type="button" onclick="NevoraWeb3.connectWallet(true)" class="btn btn-link text-primary p-0 font-11 fw-semibold text-decoration-none">
+                                <i class="fa-solid fa-arrows-rotate me-1"></i> Switch / Reconnect
+                            </button>
+                        </div>
+
+                        <div id="unconnected-wallet-box" class="p-3 rounded-4 bg-primary bg-opacity-10 border border-primary border-opacity-25 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3 {{ $user->wallet_address ? 'd-none' : '' }}">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-primary text-white p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; min-width: 40px;">
+                                    <i class="fa-solid fa-wallet font-18"></i>
                                 </div>
-                                <a href="{{ route('member.profile.index') }}" class="text-primary font-11 fw-semibold text-decoration-none">
-                                    Change Wallet <i class="fa-solid fa-arrow-right ms-1"></i>
-                                </a>
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-dark font-13">Connect your SafePal / Web3 Wallet</h6>
+                                    <p class="text-muted font-11 mb-0">Connect in 1 click to enable automated $15 USDT instant slot activation.</p>
+                                </div>
                             </div>
-                        @endif
+                            <button type="button" onclick="NevoraWeb3.connectWallet(true)" class="btn btn-primary btn-sm rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center gap-1.5">
+                                <i class="fa-solid fa-link font-12"></i> Connect SafePal
+                            </button>
+                        </div>
 
                         @if($assignedPayee)
                             <div class="row g-4 align-items-center">
-                                <!-- Left: Clean Framed QR Code -->
-                                <div class="col-12 col-md-4 text-center">
-                                    <div class="p-2.5 bg-white rounded-4 border d-inline-block shadow-sm">
-                                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data={{ $assignedPayee['wallet_address'] }}" 
-                                             alt="Payee QR Code" 
-                                             class="img-fluid rounded-3" 
-                                             style="width: 135px; height: 135px;" />
-                                    </div>
-                                    <small class="d-block text-muted font-11 mt-2 fw-semibold">
-                                        <i class="fa-solid fa-qrcode me-1"></i> Scan with TrustWallet / Binance
-                                    </small>
-                                </div>
-
-                                <!-- Right: Payee & Address Box -->
-                                <div class="col-12 col-md-8">
-                                    <!-- Beneficiary Pill -->
-                                    <div class="d-flex align-items-center justify-content-between p-2.5 rounded-3 bg-light border mb-3">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center font-12 fw-bold" style="width: 32px; height: 32px;">
+                                <!-- Left: Beneficiary & Summary Card -->
+                                <div class="col-12 col-md-5">
+                                    <div class="p-3 bg-light rounded-4 border">
+                                        <div class="d-flex align-items-center gap-2 mb-3">
+                                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center font-12 fw-bold" style="width: 36px; height: 36px;">
                                                 {{ substr($assignedPayee['payee_user']->name ?? 'C', 0, 1) }}
                                             </div>
                                             <div>
@@ -161,58 +144,98 @@
                                                 <h6 class="mb-0 fw-bold font-13 text-dark">{{ $assignedPayee['payee_user']->name ?? 'Company Root' }}</h6>
                                             </div>
                                         </div>
-                                        <span class="badge bg-primary-subtle text-primary rounded-pill px-2.5 py-1 font-11 fw-bold">
-                                            {{ $assignedPayee['payee_user']->member_id ?? 'COMPANY01' }}
-                                        </span>
-                                    </div>
 
-                                    <!-- Copyable Address Container -->
-                                    <label class="form-label font-11 fw-bold text-uppercase text-muted mb-1">Payee BEP-20 Wallet Address (USDT)</label>
-                                    <div class="input-group mb-3 shadow-sm rounded-3 overflow-hidden">
-                                        <span class="input-group-text bg-light border-end-0 text-muted">
-                                            <i class="fa-solid fa-wallet"></i>
-                                        </span>
-                                        <input type="text" 
-                                               class="form-control font-monospace font-12 bg-white border-start-0 border-end-0 text-dark" 
-                                               id="payee-address-input" 
-                                               value="{{ $assignedPayee['wallet_address'] }}" 
-                                               readonly>
-                                        <button class="btn btn-primary px-3 fw-bold" 
-                                                type="button" 
-                                                onclick="copyText('payee-address-input')">
-                                            <i class="fa-solid fa-copy me-1"></i> Copy
-                                        </button>
-                                    </div>
-
-                                    <!-- Transaction Submission Form -->
-                                    <form method="POST" action="{{ route('member.track.payment') }}">
-                                        @csrf
-                                        <input type="hidden" name="slot_number" value="1">
-                                        <label class="form-label font-11 fw-bold text-uppercase text-muted mb-1">
-                                            BSC Transaction Hash <span class="fw-normal text-muted font-10">(Optional, for instant verification)</span>
-                                        </label>
-                                        <div class="input-group mb-3 shadow-sm rounded-3 overflow-hidden">
-                                            <span class="input-group-text bg-light border-end-0 text-muted">
-                                                <i class="fa-solid fa-receipt"></i>
-                                            </span>
-                                            <input type="text" 
-                                                   name="tx_hash" 
-                                                   class="form-control font-monospace font-12 border-start-0 text-dark" 
-                                                   placeholder="Paste 0x... TxHash or leave blank to auto-track">
+                                        <div class="p-2.5 bg-white rounded-3 border mb-2">
+                                            <div class="d-flex justify-content-between font-11 text-muted mb-1">
+                                                <span>Member ID:</span>
+                                                <span class="fw-bold text-dark">{{ $assignedPayee['payee_user']->member_id ?? 'COMPANY01' }}</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between font-11 text-muted mb-1">
+                                                <span>Payment Type:</span>
+                                                <span class="badge {{ $assignedPayee['category'] === 'Slot Income' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning' }} font-10 fw-bold">
+                                                    {{ $assignedPayee['category'] }}
+                                                </span>
+                                            </div>
+                                            <div class="d-flex justify-content-between font-11 text-muted">
+                                                <span>Network:</span>
+                                                <span class="fw-bold text-dark"><i class="fa-brands fa-ethereum text-warning me-1"></i> BNB Smart Chain (BEP-20)</span>
+                                            </div>
                                         </div>
 
-                                        @if(!$user->wallet_address)
-                                            <a href="{{ route('member.profile.index') }}" class="btn btn-warning btn-lg w-100 rounded-pill py-2.5 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2">
-                                                <i class="fa-solid fa-link font-15"></i>
-                                                <span>Link Your Wallet First to Enable Activation</span>
-                                            </a>
-                                        @else
-                                            <button type="submit" class="btn btn-success btn-lg w-100 rounded-pill py-2.5 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2">
-                                                <i class="fa-solid fa-bolt font-15"></i>
-                                                <span>Track Payment & Activate Slot 1</span>
+                                        <div class="text-center mt-3">
+                                            <button class="btn btn-link btn-sm text-muted font-11 text-decoration-none" 
+                                                    type="button" 
+                                                    data-bs-toggle="collapse" 
+                                                    data-bs-target="#manual-qr-collapse" 
+                                                    aria-expanded="false">
+                                                <i class="fa-solid fa-qrcode me-1"></i> Show Manual QR & Address
                                             </button>
-                                        @endif
-                                    </form>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right: 1-Click Automated Payment Action -->
+                                <div class="col-12 col-md-7">
+                                    <div class="p-4 rounded-4 text-center border shadow-sm" style="background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%);">
+                                        <div class="mb-3">
+                                            <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-1 font-11 fw-bold text-uppercase">
+                                                Automated 1-Click Activation
+                                            </span>
+                                            <h4 class="fw-bold text-dark mt-2 mb-1">Pay ${{ number_format($assignedPayee['amount'], 2) }} USDT</h4>
+                                            <p class="text-muted font-12 mb-0">Direct peer-to-peer on-chain transfer to assigned beneficiary.</p>
+                                        </div>
+
+                                        <!-- Primary Web3 1-Click Pay Button -->
+                                        <button type="button" 
+                                                id="btn-web3-pay"
+                                                onclick="NevoraWeb3.paySlotWithSafePal({{ $currentSlot->slot_number ?? 1 }})"
+                                                class="btn btn-primary btn-lg w-100 rounded-pill py-3 fw-bold shadow-lg d-flex align-items-center justify-content-center gap-2 mb-2 transition-all"
+                                                style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); border: none;">
+                                            <i class="fa-solid fa-bolt font-18 text-warning"></i>
+                                            <span class="font-16">Pay ${{ number_format($assignedPayee['amount'], 2) }} USDT with SafePal</span>
+                                        </button>
+
+                                        <small class="text-muted font-11 d-block mt-2">
+                                            <i class="fa-solid fa-shield-halved text-success me-1"></i> Authorize securely via your SafePal App with fingerprint / PIN.
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Collapsible Alternative: Manual QR Code & Tx Hash Pasting -->
+                            <div class="collapse mt-4" id="manual-qr-collapse">
+                                <div class="p-3 bg-light rounded-4 border">
+                                    <h6 class="fw-bold font-12 text-muted text-uppercase mb-3"><i class="fa-solid fa-sliders me-1"></i> Alternative: Manual Transfer & Hash Verification</h6>
+                                    <div class="row g-3 align-items-center">
+                                        <div class="col-12 col-md-4 text-center">
+                                            <div class="p-2 bg-white rounded-3 border d-inline-block shadow-sm">
+                                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ $assignedPayee['wallet_address'] }}" 
+                                                     alt="Payee QR Code" 
+                                                     class="img-fluid rounded-2" 
+                                                     style="width: 110px; height: 110px;" />
+                                            </div>
+                                        </div>
+                                        <div class="col-12 col-md-8">
+                                            <label class="form-label font-11 fw-bold text-uppercase text-muted mb-1">Payee BEP-20 Wallet Address (USDT)</label>
+                                            <div class="input-group mb-2 shadow-sm rounded-3 overflow-hidden">
+                                                <input type="text" class="form-control font-monospace font-11 bg-white border-end-0 text-dark" id="payee-address-input" value="{{ $assignedPayee['wallet_address'] }}" readonly>
+                                                <button class="btn btn-outline-secondary px-3 font-11 fw-bold" type="button" onclick="copyText('payee-address-input')">
+                                                    <i class="fa-solid fa-copy me-1"></i> Copy
+                                                </button>
+                                            </div>
+
+                                            <form method="POST" action="{{ route('member.track.payment') }}">
+                                                @csrf
+                                                <input type="hidden" name="slot_number" value="{{ $currentSlot->slot_number ?? 1 }}">
+                                                <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                                                    <input type="text" name="tx_hash" class="form-control font-monospace font-11 text-dark" placeholder="Paste 0x... TxHash manually">
+                                                    <button type="submit" class="btn btn-success px-3 font-11 fw-bold">
+                                                        <i class="fa-solid fa-check me-1"></i> Verify Hash
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         @else

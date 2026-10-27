@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Member;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Models\Slot;
 use App\Models\SlotPosition;
 use App\Models\Announcement;
 use App\Services\PaymentRouteService;
 use App\Services\P2PBlockchainService;
 use App\Services\MatrixIncomeService;
+use App\Services\TreePlacementService;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -16,15 +18,18 @@ class DashboardController extends Controller
     protected PaymentRouteService $paymentRouteService;
     protected P2PBlockchainService $blockchainService;
     protected MatrixIncomeService $matrixIncomeService;
+    protected TreePlacementService $treePlacementService;
 
     public function __construct(
         PaymentRouteService $paymentRouteService,
         P2PBlockchainService $blockchainService,
-        MatrixIncomeService $matrixIncomeService
+        MatrixIncomeService $matrixIncomeService,
+        TreePlacementService $treePlacementService
     ) {
         $this->paymentRouteService = $paymentRouteService;
         $this->blockchainService = $blockchainService;
         $this->matrixIncomeService = $matrixIncomeService;
+        $this->treePlacementService = $treePlacementService;
     }
 
     public function index()
@@ -41,6 +46,15 @@ class DashboardController extends Controller
         // Current Active Slot Position
         $currentSlot = Slot::where('slot_number', $user->current_slot_id)->first() ?? $allSlots->first();
         $currentPosition = $userPositions->get($currentSlot->slot_number);
+
+        // Self-heal: ensure unpaid member has a valid slot position
+        if (!$currentPosition && !$user->is_paid) {
+            $sponsor = $user->sponsor ?? User::where('member_id', 'COMPANY01')->first();
+            if ($sponsor) {
+                $currentPosition = $this->treePlacementService->placeInWorkingTree($user, $sponsor);
+                $userPositions->put($currentSlot->slot_number, $currentPosition);
+            }
+        }
 
         // Calculate assigned payee for activation (if unpaid in current slot or ready for next)
         $assignedPayee = null;
@@ -91,6 +105,14 @@ class DashboardController extends Controller
             ->where('slot_id', $slot->id)
             ->first();
 
+        // Self-heal: ensure position exists for unpaid user
+        if (!$position && !$user->is_paid) {
+            $sponsor = $user->sponsor ?? User::where('member_id', 'COMPANY01')->first();
+            if ($sponsor) {
+                $position = $this->treePlacementService->placeInWorkingTree($user, $sponsor);
+            }
+        }
+
         if (!$position) {
             return response()->json([
                 'status' => false,
@@ -99,6 +121,8 @@ class DashboardController extends Controller
         }
 
         $routing = $this->paymentRouteService->resolvePayee($position, $slot);
+        $payeeUser = $routing['payee_user'] ?? null;
+        $payeeWallet = $routing['wallet_address'];
 
         return response()->json([
             'status' => true,
@@ -106,7 +130,10 @@ class DashboardController extends Controller
             'slot_name' => $slot->name,
             'amount' => (float) $routing['amount'],
             'amount_wei' => bcmul((string) $routing['amount'], '1000000000000000000'),
-            'payee_address' => $routing['wallet_address'],
+            'payee_name' => $payeeUser ? $payeeUser->name : 'Company Root',
+            'payee_member_id' => $payeeUser ? $payeeUser->member_id : 'COMPANY01',
+            'payee_address' => $payeeWallet,
+            'payee_masked_address' => maskAddress($payeeWallet),
             'category' => $routing['category'],
             'is_company_wallet' => $routing['is_company_wallet'] ?? false,
             'usdt_contract' => env('USDT_CONTRACT_ADDRESS', '0x55d398326f99059fF775485246999027B3197955'),

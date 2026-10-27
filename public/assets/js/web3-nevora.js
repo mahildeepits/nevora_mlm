@@ -256,26 +256,43 @@ const NevoraWeb3 = (function () {
             }
 
             const payeeAddress = routeData.payee_address;
+            const payeeName = routeData.payee_name || 'Eligible Beneficiary';
+            const payeeMemberId = routeData.payee_member_id || 'COMPANY01';
+            const payeeMasked = routeData.payee_masked_address || (payeeAddress ? (payeeAddress.slice(0, 6) + '...' + payeeAddress.slice(-4)) : '-');
             const amountUsdt = routeData.amount;
             const amountWei = BigInt(routeData.amount_wei);
             const usdtContractAddr = routeData.usdt_contract || state.usdtContractAddress;
 
-            // 3. Prompt SafePal Transfer Request
+            // 3. Prompt SafePal Transfer Request with full Payee details
             Swal.fire({
                 title: 'Approve in SafePal',
                 html: `
                     <div class="p-3 bg-light rounded-4 text-start mb-3 border">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted font-12">Amount:</span>
-                            <span class="fw-bold text-dark font-14">$${parseFloat(amountUsdt).toFixed(2)} USDT</span>
+                        <div class="d-flex align-items-center justify-content-between p-2 mb-2.5 rounded-3 bg-primary bg-opacity-10 border border-primary border-opacity-25">
+                            <div>
+                                <span class="text-muted font-10 text-uppercase d-block fw-semibold">Transfer Amount</span>
+                                <h5 class="fw-bold text-primary mb-0 font-16">$${parseFloat(amountUsdt).toFixed(2)} <span class="font-12 fw-normal">USDT</span></h5>
+                            </div>
+                            <span class="badge bg-primary text-white font-11 px-2.5 py-1 rounded-pill">Slot ${slotNumber} Activation</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted font-12">Beneficiary:</span>
-                            <span class="fw-bold font-monospace font-11 text-dark">${payeeAddress.slice(0, 10)}...${payeeAddress.slice(-6)}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted font-12">Network:</span>
-                            <span class="badge bg-warning text-dark font-11"><i class="fa-brands fa-ethereum me-1"></i> BSC (BEP-20)</span>
+                        
+                        <div class="p-2.5 bg-white rounded-3 border mb-2">
+                            <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom border-light">
+                                <span class="text-muted">Payee Name:</span>
+                                <span class="fw-bold text-dark">${payeeName}</span>
+                            </div>
+                            <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom border-light">
+                                <span class="text-muted">Payee Member ID:</span>
+                                <span class="fw-bold font-monospace text-primary">${payeeMemberId}</span>
+                            </div>
+                            <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom border-light">
+                                <span class="text-muted">Payee Wallet:</span>
+                                <span class="fw-bold font-monospace text-dark">${payeeMasked}</span>
+                            </div>
+                            <div class="d-flex justify-content-between font-12">
+                                <span class="text-muted">Network:</span>
+                                <span class="fw-bold text-dark"><i class="fa-brands fa-ethereum text-warning me-1"></i> BSC (BEP-20)</span>
+                            </div>
                         </div>
                     </div>
                     <div class="d-flex align-items-center justify-content-center gap-2 text-primary font-13 fw-semibold">

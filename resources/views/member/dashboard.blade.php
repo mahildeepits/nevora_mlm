@@ -131,44 +131,110 @@
                         </div>
 
                         @if($assignedPayee)
-                            <div class="row g-4 align-items-center">
+                            {{-- Visual Transaction Flow Ribbon --}}
+                            <div class="p-3 rounded-4 bg-light border mb-4 shadow-sm">
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <div class="d-flex align-items-center flex-wrap gap-2">
+                                        <span class="badge bg-white text-dark border shadow-xs px-2.5 py-1.5 rounded-pill font-11 fw-bold">
+                                            <i class="fa-solid fa-user me-1 text-primary"></i> Payer: You ({{ $user->member_id }})
+                                        </span>
+                                        <i class="fa-solid fa-arrow-right text-muted font-11 d-none d-sm-inline"></i>
+                                        <span class="badge bg-success text-white px-2.5 py-1.5 rounded-pill font-11 fw-bold shadow-xs">
+                                            <i class="fa-solid fa-bolt me-1 text-warning"></i> Pay ${{ number_format($assignedPayee['amount'], 2) }} USDT
+                                        </span>
+                                        <i class="fa-solid fa-arrow-right text-muted font-11 d-none d-sm-inline"></i>
+                                        <span class="badge bg-primary text-white px-2.5 py-1.5 rounded-pill font-11 fw-bold shadow-xs">
+                                            <i class="fa-solid fa-hand-holding-dollar me-1"></i> Payee: {{ $assignedPayee['payee_user']->name ?? 'Company Root' }} ({{ $assignedPayee['payee_user']->member_id ?? 'COMPANY01' }})
+                                        </span>
+                                    </div>
+                                    <span class="badge bg-info-subtle text-info font-11 fw-bold px-2.5 py-1 rounded-pill">
+                                        <i class="fa-solid fa-circle-check me-1"></i> Eligible Payee Verified
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="row g-4 align-items-stretch">
                                 <!-- Left: Beneficiary & Summary Card -->
                                 <div class="col-12 col-md-5">
-                                    <div class="p-3 bg-light rounded-4 border">
-                                        <div class="d-flex align-items-center gap-2 mb-3">
-                                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center font-12 fw-bold" style="width: 36px; height: 36px;">
-                                                {{ substr($assignedPayee['payee_user']->name ?? 'C', 0, 1) }}
+                                    <div class="p-3.5 bg-light rounded-4 border shadow-sm h-100 d-flex flex-column justify-content-between">
+                                        <div>
+                                            {{-- Payee Profile Header --}}
+                                            <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom border-secondary border-opacity-10">
+                                                <div class="position-relative">
+                                                    <div class="rounded-circle text-white d-flex align-items-center justify-content-center font-15 fw-bold shadow-sm" 
+                                                         style="width: 46px; height: 46px; min-width: 46px; background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);">
+                                                        {{ substr($assignedPayee['payee_user']->name ?? 'C', 0, 1) }}
+                                                    </div>
+                                                    <span class="position-absolute bottom-0 end-0 bg-success border border-white rounded-circle p-1" title="Eligible Payee Verified"></span>
+                                                </div>
+                                                <div class="overflow-hidden">
+                                                    <span class="text-muted font-10 text-uppercase d-block fw-semibold" style="letter-spacing: 0.5px;">Eligible Beneficiary (Payee)</span>
+                                                    <h6 class="mb-0 fw-bold font-14 text-dark text-truncate">{{ $assignedPayee['payee_user']->name ?? 'Company Root' }}</h6>
+                                                    <span class="badge bg-primary-subtle text-primary font-10 px-2 py-0.5 rounded-pill fw-semibold mt-1">
+                                                        {{ $assignedPayee['is_company_wallet'] ? 'System / Reserve Wallet' : 'Direct Matrix Beneficiary' }}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <span class="text-muted font-10 text-uppercase d-block fw-semibold">Assigned Beneficiary</span>
-                                                <h6 class="mb-0 fw-bold font-13 text-dark">{{ $assignedPayee['payee_user']->name ?? 'Company Root' }}</h6>
+
+                                            {{-- Payee Detailed Attributes Box --}}
+                                            <div class="p-3 bg-white rounded-3 border shadow-xs mb-3">
+                                                {{-- Payee Member ID --}}
+                                                <div class="d-flex justify-content-between align-items-center font-12 mb-2 pb-2 border-bottom border-light">
+                                                    <span class="text-muted">Payee Member ID:</span>
+                                                    <span class="fw-bold font-monospace text-primary px-2 py-0.5 bg-primary bg-opacity-10 rounded">
+                                                        {{ $assignedPayee['payee_user']->member_id ?? 'COMPANY01' }}
+                                                    </span>
+                                                </div>
+
+                                                {{-- Payee Wallet Address (Masked with starting & ending digits) --}}
+                                                <div class="d-flex justify-content-between align-items-center font-12 mb-2 pb-2 border-bottom border-light">
+                                                    <span class="text-muted">Payee Wallet:</span>
+                                                    <div class="d-flex align-items-center gap-1.5">
+                                                        <span class="fw-bold font-monospace text-dark font-11" title="{{ $assignedPayee['wallet_address'] }}">
+                                                            {{ maskAddress($assignedPayee['wallet_address']) }}
+                                                        </span>
+                                                        <button type="button" 
+                                                                class="btn btn-outline-secondary btn-sm p-0 px-1.5 rounded font-10 border-0 shadow-none text-primary" 
+                                                                title="Copy Full Address" 
+                                                                onclick="copyRawText('{{ $assignedPayee['wallet_address'] }}', 'Payee Wallet Address')">
+                                                            <i class="fa-solid fa-copy"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {{-- Receiving Amount --}}
+                                                <div class="d-flex justify-content-between align-items-center font-12 mb-2 pb-2 border-bottom border-light">
+                                                    <span class="text-muted">Receiving Amount:</span>
+                                                    <span class="fw-bold text-success font-13">
+                                                        ${{ number_format($assignedPayee['amount'], 2) }} <span class="font-10 text-muted">USDT</span>
+                                                    </span>
+                                                </div>
+
+                                                {{-- Payment Purpose --}}
+                                                <div class="d-flex justify-content-between align-items-center font-12 mb-2 pb-2 border-bottom border-light">
+                                                    <span class="text-muted">Payment Type:</span>
+                                                    <span class="badge {{ $assignedPayee['category'] === 'Slot Income' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning' }} font-10 fw-bold">
+                                                        {{ $assignedPayee['category'] }}
+                                                    </span>
+                                                </div>
+
+                                                {{-- Network --}}
+                                                <div class="d-flex justify-content-between align-items-center font-12">
+                                                    <span class="text-muted">Network:</span>
+                                                    <span class="fw-bold text-dark font-11">
+                                                        <i class="fa-brands fa-ethereum text-warning me-1"></i> BNB Smart Chain (BEP-20)
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div class="p-2.5 bg-white rounded-3 border mb-2">
-                                            <div class="d-flex justify-content-between font-11 text-muted mb-1">
-                                                <span>Member ID:</span>
-                                                <span class="fw-bold text-dark">{{ $assignedPayee['payee_user']->member_id ?? 'COMPANY01' }}</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between font-11 text-muted mb-1">
-                                                <span>Payment Type:</span>
-                                                <span class="badge {{ $assignedPayee['category'] === 'Slot Income' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning' }} font-10 fw-bold">
-                                                    {{ $assignedPayee['category'] }}
-                                                </span>
-                                            </div>
-                                            <div class="d-flex justify-content-between font-11 text-muted">
-                                                <span>Network:</span>
-                                                <span class="fw-bold text-dark"><i class="fa-brands fa-ethereum text-warning me-1"></i> BNB Smart Chain (BEP-20)</span>
-                                            </div>
-                                        </div>
-
-                                        <div class="text-center mt-3">
+                                        <div class="text-center mt-2">
                                             <button class="btn btn-link btn-sm text-muted font-11 text-decoration-none" 
                                                     type="button" 
                                                     data-bs-toggle="collapse" 
                                                     data-bs-target="#manual-qr-collapse" 
                                                     aria-expanded="false">
-                                                <i class="fa-solid fa-qrcode me-1"></i> Show Manual QR & Address
+                                                <i class="fa-solid fa-qrcode me-1"></i> Show Manual QR & Full Address
                                             </button>
                                         </div>
                                     </div>
@@ -176,13 +242,15 @@
 
                                 <!-- Right: 1-Click Automated Payment Action -->
                                 <div class="col-12 col-md-7">
-                                    <div class="p-4 rounded-4 text-center border shadow-sm" style="background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%);">
+                                    <div class="p-4 rounded-4 text-center border shadow-sm h-100 d-flex flex-column justify-content-center" style="background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%);">
                                         <div class="mb-3">
                                             <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-1 font-11 fw-bold text-uppercase">
                                                 Automated 1-Click Activation
                                             </span>
-                                            <h4 class="fw-bold text-dark mt-2 mb-1">Pay ${{ number_format($assignedPayee['amount'], 2) }} USDT</h4>
-                                            <p class="text-muted font-12 mb-0">Direct on-chain transfer to assigned beneficiary.</p>
+                                            <h3 class="fw-bold text-dark mt-2 mb-1">${{ number_format($assignedPayee['amount'], 2) }} <span class="font-16 text-muted fw-normal">USDT</span></h3>
+                                            <p class="text-muted font-12 mb-0">
+                                                Direct on-chain transfer to assigned beneficiary <strong class="text-dark">{{ $assignedPayee['payee_user']->name ?? 'Company Root' }}</strong> ({{ $assignedPayee['payee_user']->member_id ?? 'COMPANY01' }}).
+                                            </p>
                                         </div>
 
                                         <!-- Primary Web3 1-Click Pay Button -->
@@ -195,17 +263,25 @@
                                             <span class="font-16">Pay ${{ number_format($assignedPayee['amount'], 2) }} USDT with SafePal</span>
                                         </button>
 
-                                        <small class="text-muted font-11 d-block mt-2">
-                                            <i class="fa-solid fa-shield-halved text-success me-1"></i> Authorize securely via your SafePal App with fingerprint / PIN.
-                                        </small>
+                                        <div class="d-flex align-items-center justify-content-center gap-2 text-muted font-11 mt-2">
+                                            <i class="fa-solid fa-shield-halved text-success"></i>
+                                            <span>Authorize securely via your SafePal / Web3 wallet with fingerprint / PIN.</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Collapsible Alternative: Manual QR Code & Tx Hash Pasting -->
                             <div class="collapse mt-4" id="manual-qr-collapse">
-                                <div class="p-3 bg-light rounded-4 border">
-                                    <h6 class="fw-bold font-12 text-muted text-uppercase mb-3"><i class="fa-solid fa-sliders me-1"></i> Alternative: Manual Transfer & Hash Verification</h6>
+                                <div class="p-3.5 bg-light rounded-4 border shadow-sm">
+                                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2 pb-2 border-bottom">
+                                        <h6 class="fw-bold font-12 text-muted text-uppercase mb-0">
+                                            <i class="fa-solid fa-sliders me-1"></i> Alternative: Manual Transfer & Hash Verification
+                                        </h6>
+                                        <span class="badge bg-white text-muted border font-10">
+                                            Beneficiary: {{ $assignedPayee['payee_user']->name ?? 'Company Root' }} ({{ $assignedPayee['payee_user']->member_id ?? 'COMPANY01' }})
+                                        </span>
+                                    </div>
                                     <div class="row g-3 align-items-center">
                                         <div class="col-12 col-md-4 text-center">
                                             <div class="p-2 bg-white rounded-3 border d-inline-block shadow-sm">
@@ -214,9 +290,13 @@
                                                      class="img-fluid rounded-2" 
                                                      style="width: 110px; height: 110px;" />
                                             </div>
+                                            <div class="font-10 text-muted mt-1">Scan via SafePal App</div>
                                         </div>
                                         <div class="col-12 col-md-8">
-                                            <label class="form-label font-11 fw-bold text-uppercase text-muted mb-1">Payee BEP-20 Wallet Address (USDT)</label>
+                                            <label class="form-label font-11 fw-bold text-uppercase text-muted mb-1 d-flex justify-content-between">
+                                                <span>Payee BEP-20 Wallet Address (USDT)</span>
+                                                <span class="text-primary font-monospace">{{ maskAddress($assignedPayee['wallet_address']) }}</span>
+                                            </label>
                                             <div class="input-group mb-2 shadow-sm rounded-3 overflow-hidden">
                                                 <input type="text" class="form-control font-monospace font-11 bg-white border-end-0 text-dark" id="payee-address-input" value="{{ $assignedPayee['wallet_address'] }}" readonly>
                                                 <button class="btn btn-outline-secondary px-3 font-11 fw-bold" type="button" onclick="copyText('payee-address-input')">
@@ -731,6 +811,27 @@
         } else {
             alert('Copied to clipboard: ' + input.value);
         }
+    }
+
+    function copyRawText(text, label = 'Address') {
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            if (typeof toastrMessage === 'function') {
+                toastrMessage(label + ' copied to clipboard!', 'success');
+            } else if (typeof toastr !== 'undefined' && toastr.success) {
+                toastr.success(label + ' copied to clipboard!');
+            } else if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Copied!',
+                    text: label + ': ' + text,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            } else {
+                alert(label + ' copied to clipboard: ' + text);
+            }
+        });
     }
 
     document.addEventListener("DOMContentLoaded", function() {

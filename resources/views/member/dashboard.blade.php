@@ -94,7 +94,7 @@
                                     <i class="fa-brands fa-ethereum me-1 text-warning"></i> BNB Smart Chain (BEP-20)
                                 </span>
                             </div>
-                            <h5 class="text-white fw-bold mb-0 mt-2">Peer-to-Peer On-Chain Transfer</h5>
+                            <h5 class="text-white fw-bold mb-0 mt-2">Direct On-Chain Transfer</h5>
                         </div>
                         <div class="text-md-end">
                             <span class="text-white-50 font-11 d-block text-uppercase fw-semibold">Required Deposit</span>
@@ -182,7 +182,7 @@
                                                 Automated 1-Click Activation
                                             </span>
                                             <h4 class="fw-bold text-dark mt-2 mb-1">Pay ${{ number_format($assignedPayee['amount'], 2) }} USDT</h4>
-                                            <p class="text-muted font-12 mb-0">Direct peer-to-peer on-chain transfer to assigned beneficiary.</p>
+                                            <p class="text-muted font-12 mb-0">Direct on-chain transfer to assigned beneficiary.</p>
                                         </div>
 
                                         <!-- Primary Web3 1-Click Pay Button -->
@@ -249,7 +249,7 @@
 
                     <div class="card-footer bg-light p-3 px-md-4 border-top text-center text-md-start d-flex align-items-center justify-content-between flex-wrap gap-2">
                         <small class="text-muted font-11">
-                            <i class="fa-solid fa-shield-halved text-primary me-1"></i> Funds are transferred 100% Peer-to-Peer directly into the payee's decentralized wallet.
+                            <i class="fa-solid fa-shield-halved text-primary me-1"></i> Funds are transferred 100% directly into the payee's decentralized wallet.
                         </small>
                         <span class="badge bg-success-subtle text-success font-10 fw-bold">
                             <i class="fa-solid fa-arrows-rotate fa-spin me-1"></i> Auto-Scanner Active

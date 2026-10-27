@@ -188,7 +188,7 @@
                             <img src="{{ asset('assets/images/logo-main.png') }}" alt="NEVORA" class="img-fluid mb-2" style="max-height: 85px; object-fit: contain;">
                             <p class="text-muted font-12 mb-2">3-Matrix Hybrid On-Chain Ecosystem</p>
                             <span class="badge bg-soft-primary px-3 py-1 rounded-pill font-11">
-                                <i class="fa-solid fa-shield-halved me-1"></i> Decentralized P2P Network
+                                <i class="fa-solid fa-shield-halved me-1"></i> Decentralized Smart Network
                             </span>
                         </div>
 

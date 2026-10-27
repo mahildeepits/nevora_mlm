@@ -174,7 +174,7 @@ class InitialTreeSeeder extends Seeder
         Announcement::updateOrCreate(
             ['title' => 'Welcome to NEVORA 3-Matrix Hybrid Platform!'],
             [
-                'content' => 'Welcome to NEVORA! Our next-generation 3-Matrix 12-Slot hybrid platform with direct P2P on-chain tracking is officially live. Connect your BEP-20 wallet and activate Slot 1 ($15 USDT) to start earning direct matrix and global autopool incomes.',
+                'content' => 'Welcome to NEVORA! Our next-generation 3-Matrix 12-Slot hybrid platform with direct on-chain tracking is officially live. Connect your BEP-20 wallet and activate Slot 1 ($15 USDT) to start earning direct matrix and global autopool incomes.',
                 'type' => 'info',
                 'is_active' => true,
             ]

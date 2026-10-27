@@ -162,9 +162,9 @@
                             <div class="d-flex align-items-start gap-3">
                                 <i class="fa-solid fa-shield-halved font-24 mt-1"></i>
                                 <div>
-                                    <h6 class="fw-bold mb-1">P2P Decentralized Wallet Binding</h6>
+                                    <h6 class="fw-bold mb-1">Decentralized Wallet Binding</h6>
                                     <p class="mb-0 font-13">
-                                        All peer-to-peer slot activations and direct matrix earnings are transferred directly on the Binance Smart Chain (BSC) in <strong>BEP-20 USDT</strong>.
+                                        All slot activations and direct matrix earnings are transferred directly on the Binance Smart Chain (BSC) in <strong>BEP-20 USDT</strong>.
                                         To ensure utmost security, binding or updating your BEP-20 address requires an Email OTP verification.
                                     </p>
                                 </div>

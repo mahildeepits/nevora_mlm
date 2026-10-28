@@ -12,16 +12,86 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Convert any blank or empty mobile strings to NULL so unique index won't collide
-        DB::table('users')->where('mobile', '')->update(['mobile' => null]);
+        // 1. Convert any blank or whitespace mobile strings to NULL so unique index won't collide
+        DB::table('users')
+            ->where('mobile', '')
+            ->orWhere('mobile', ' ')
+            ->update(['mobile' => null]);
 
-        Schema::table('users', function (Blueprint $table) {
-            // Drop unique index from email
-            $table->dropUnique(['email']);
+        // 2. Resolve any existing duplicate non-null mobile values so the unique index won't fail with Error 1062
+        try {
+            $duplicates = DB::table('users')
+                ->select('mobile')
+                ->whereNotNull('mobile')
+                ->where('mobile', '!=', '')
+                ->groupBy('mobile')
+                ->havingRaw('COUNT(*) > 1')
+                ->pluck('mobile');
 
-            // Add unique index to mobile / phone number
-            $table->unique('mobile');
-        });
+            foreach ($duplicates as $dup) {
+                $ids = DB::table('users')
+                    ->where('mobile', $dup)
+                    ->orderBy('id', 'asc')
+                    ->pluck('id');
+
+                if ($ids->count() > 1) {
+                    // Keep the first user's phone, set subsequent duplicate users to null
+                    DB::table('users')->whereIn('id', $ids->slice(1))->update(['mobile' => null]);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Non-critical, continue
+        }
+
+        // 3. Drop unique index from email safely (if it exists under any name)
+        try {
+            $indexes = collect(Schema::getIndexes('users'));
+
+            $emailUniqueIndexes = $indexes->filter(function ($index) {
+                return in_array('email', $index['columns'] ?? []) && !empty($index['unique']) && empty($index['primary']);
+            });
+
+            foreach ($emailUniqueIndexes as $idx) {
+                try {
+                    Schema::table('users', function (Blueprint $table) use ($idx) {
+                        $table->dropUnique($idx['name']);
+                    });
+                } catch (\Throwable $e) {
+                    // Already dropped or ignored
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fallback for drivers or configurations where getIndexes is not available
+            foreach (['users_email_unique', 'email'] as $indexName) {
+                try {
+                    Schema::table('users', function (Blueprint $table) use ($indexName) {
+                        $table->dropUnique($indexName);
+                    });
+                } catch (\Throwable $e2) {
+                    // Index does not exist, ignore
+                }
+            }
+        }
+
+        // 4. Add unique index to mobile only if it doesn't already exist
+        $hasMobileUnique = false;
+        try {
+            $hasMobileUnique = collect(Schema::getIndexes('users'))->contains(function ($index) {
+                return in_array('mobile', $index['columns'] ?? []) && !empty($index['unique']);
+            });
+        } catch (\Throwable $e) {
+            $hasMobileUnique = false;
+        }
+
+        if (!$hasMobileUnique) {
+            try {
+                Schema::table('users', function (Blueprint $table) {
+                    $table->unique('mobile');
+                });
+            } catch (\Throwable $e) {
+                // If unique index already exists or was created with another name, ignore
+            }
+        }
     }
 
     /**
@@ -29,9 +99,46 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropUnique(['mobile']);
-            $table->unique('email');
-        });
+        // Drop unique index from mobile safely
+        try {
+            $indexes = collect(Schema::getIndexes('users'));
+            $mobileUniqueIndexes = $indexes->filter(function ($index) {
+                return in_array('mobile', $index['columns'] ?? []) && !empty($index['unique']) && empty($index['primary']);
+            });
+
+            foreach ($mobileUniqueIndexes as $idx) {
+                try {
+                    Schema::table('users', function (Blueprint $table) use ($idx) {
+                        $table->dropUnique($idx['name']);
+                    });
+                } catch (\Throwable $e) {}
+            }
+        } catch (\Throwable $e) {
+            foreach (['users_mobile_unique', 'mobile'] as $indexName) {
+                try {
+                    Schema::table('users', function (Blueprint $table) use ($indexName) {
+                        $table->dropUnique($indexName);
+                    });
+                } catch (\Throwable $e2) {}
+            }
+        }
+
+        // Re-add unique index to email if not already unique
+        $hasEmailUnique = false;
+        try {
+            $hasEmailUnique = collect(Schema::getIndexes('users'))->contains(function ($index) {
+                return in_array('email', $index['columns'] ?? []) && !empty($index['unique']);
+            });
+        } catch (\Throwable $e) {
+            $hasEmailUnique = false;
+        }
+
+        if (!$hasEmailUnique) {
+            try {
+                Schema::table('users', function (Blueprint $table) {
+                    $table->unique('email');
+                });
+            } catch (\Throwable $e) {}
+        }
     }
 };

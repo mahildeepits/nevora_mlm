@@ -164,8 +164,8 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label fw-bold font-13">Mobile / Phone Number</label>
-                                <input type="text" name="mobile" class="form-control @error('mobile') is-invalid @enderror" value="{{ old('mobile') }}" placeholder="+1234567890">
+                                <label class="form-label fw-bold font-13">Mobile / Phone Number <span class="text-danger">*</span></label>
+                                <input type="tel" name="mobile" class="form-control @error('mobile') is-invalid @enderror" value="{{ old('mobile') }}" placeholder="+1234567890" required>
                                 @error('mobile')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
 

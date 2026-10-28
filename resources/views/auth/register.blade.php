@@ -210,10 +210,10 @@
 
                                 {{-- Mobile --}}
                                 <div class="col-md-6">
-                                    <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Mobile Number</label>
+                                    <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Mobile Number <span class="text-danger">*</span></label>
                                     <div class="custom-input-group @error('mobile') has-error @enderror">
                                         <span class="input-icon"><i class="fa-solid fa-phone"></i></span>
-                                        <input type="text" name="mobile" class="form-control" placeholder="+1234567890" value="{{ old('mobile') }}">
+                                        <input type="tel" name="mobile" class="form-control" placeholder="+1234567890" value="{{ old('mobile') }}" required>
                                     </div>
                                     @error('mobile')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
                                 </div>
@@ -230,6 +230,9 @@
                                         </button>
                                     </div>
                                     <div id="otpNotice" class="font-12 mt-1"></div>
+                                    <small class="text-muted font-11 d-block mt-1">
+                                        <i class="fa-solid fa-circle-info text-primary me-1"></i> You can register multiple accounts with the same email. Each account requires a unique mobile number.
+                                    </small>
                                     @error('email')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
                                 </div>
 

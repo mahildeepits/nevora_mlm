@@ -31,12 +31,15 @@ class ProfileController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:100',
-            'mobile' => 'nullable|string|max:20',
+            'mobile' => 'required|string|max:20|unique:users,mobile,' . $user->id,
             'address' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:100',
             'country' => 'nullable|string|max:100',
             'pincode' => 'nullable|string|max:20',
+        ], [
+            'mobile.required' => 'Mobile number is required.',
+            'mobile.unique' => 'This mobile number is already registered to another account.',
         ]);
 
         $user->update($request->only([

@@ -55,10 +55,13 @@ class UserController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:100',
-            'mobile' => 'nullable|string|max:20',
-            'email' => 'required|email|unique:users,email,' . $user->id,
+            'mobile' => 'required|string|max:20|unique:users,mobile,' . $user->id,
+            'email' => 'required|email|max:255',
             'wallet_address' => 'nullable|string',
             'is_paid' => 'required|boolean',
+        ], [
+            'mobile.required' => 'Mobile number is required.',
+            'mobile.unique' => 'This mobile number is already registered to another account.',
         ]);
 
         $user->update($request->only([

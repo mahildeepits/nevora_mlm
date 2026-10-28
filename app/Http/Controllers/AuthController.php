@@ -31,22 +31,29 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        // Support member_id directly (with fallback to login field for backward compatibility)
+        if (!$request->has('member_id') && $request->has('login')) {
+            $request->merge(['member_id' => $request->input('login')]);
+        }
+
         $validator = Validator::make($request->all(), [
-            'login' => 'required', // can be member_id or email
+            'member_id' => 'required',
             'password' => 'required',
+        ], [
+            'member_id.required' => 'Please enter your Member ID.',
+            'password.required' => 'Please enter your password.',
         ]);
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
         }
 
-        $loginInput = $request->input('login');
-        $field = filter_var($loginInput, FILTER_VALIDATE_EMAIL) ? 'email' : 'member_id';
+        $memberId = trim($request->input('member_id'));
 
-        $user = User::where($field, $loginInput)->first();
+        $user = User::where('member_id', $memberId)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
-            return back()->withErrors(['login' => 'Invalid credentials provided.'])->withInput();
+            return back()->withErrors(['member_id' => 'Invalid Member ID or password provided.'])->withInput();
         }
 
         // Check if admin login attempted on member portal
@@ -83,11 +90,16 @@ class AuthController extends Controller
     public function sendRegisterOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email|unique:users,email',
+            'email' => 'required|email|max:255',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['status' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        // Prevent registration OTP for admin accounts
+        if (User::where('email', $request->email)->where('role_id', 1)->exists()) {
+            return response()->json(['status' => false, 'message' => 'This email address is reserved and cannot be used.'], 422);
         }
 
         $res = $this->otpService->generateAndSend($request->email, 'registration');
@@ -99,14 +111,22 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'sponsor_id' => 'required|exists:users,member_id',
             'name' => 'required|string|max:100',
-            'email' => 'required|email|unique:users,email',
-            'mobile' => 'nullable|string|max:20',
+            'email' => 'required|email|max:255',
+            'mobile' => 'required|string|max:20|unique:users,mobile',
             'password' => 'required|min:6|confirmed',
             'otp' => 'required|string',
+        ], [
+            'mobile.required' => 'Mobile number is required.',
+            'mobile.unique' => 'This mobile number is already registered to another account. Please use a unique phone number.',
         ]);
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
+        }
+
+        // Prevent registration for admin accounts
+        if (User::where('email', $request->email)->where('role_id', 1)->exists()) {
+            return back()->withErrors(['email' => 'This email address is reserved and cannot be used.'])->withInput();
         }
 
         // Rule: Only active (is_paid = 1) users can sponsor!

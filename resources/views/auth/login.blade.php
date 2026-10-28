@@ -198,14 +198,14 @@
                         <form method="POST" action="{{ route('member.login') }}">
                             @csrf
 
-                            {{-- Member ID or Email --}}
+                            {{-- Member ID --}}
                             <div class="mb-3">
-                                <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Member ID or Email</label>
-                                <div class="custom-input-group @error('login') has-error @enderror">
-                                    <span class="input-icon"><i class="fa-solid fa-user"></i></span>
-                                    <input type="text" name="login" class="form-control" placeholder="e.g. MEMBER01 or email@domain.com" value="{{ old('login') }}" required autofocus>
+                                <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Member ID</label>
+                                <div class="custom-input-group @error('member_id') has-error @enderror">
+                                    <span class="input-icon"><i class="fa-solid fa-id-card"></i></span>
+                                    <input type="text" name="member_id" class="form-control font-monospace" placeholder="e.g. PM123456" value="{{ old('member_id') }}" required autofocus>
                                 </div>
-                                @error('login')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
+                                @error('member_id')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
                             </div>
 
                             {{-- Password --}}

@@ -302,7 +302,7 @@
                         });
 
                         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
-                        const response = await fetch("{{ route('member.login.web3') }}", {
+                        const response = await fetch("{{ Route::has('member.login.web3') ? route('member.login.web3') : url('login-web3') }}", {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',

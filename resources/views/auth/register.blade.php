@@ -318,7 +318,7 @@
                 }
 
                 sponsorTimer = setTimeout(() => {
-                    fetch(`{{ route('member.check_sponsor') }}?sponsor_id=${encodeURIComponent(val)}`)
+                    fetch(`{{ Route::has('member.check_sponsor') ? route('member.check_sponsor') : url('check-sponsor') }}?sponsor_id=${encodeURIComponent(val)}`)
                         .then(res => res.json())
                         .then(data => {
                             if (data.status) {

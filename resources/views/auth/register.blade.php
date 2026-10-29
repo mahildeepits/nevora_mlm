@@ -404,7 +404,8 @@
                     });
 
                     const formData = new FormData(form);
-                    const submitRes = await fetch("{{ route('member.register') }}", {
+                    const registerSubmitUrl = "{{ Route::has('member.register') ? route('member.register') : url('register') }}";
+                    const submitRes = await fetch(registerSubmitUrl, {
                         method: 'POST',
                         headers: {
                             'Accept': 'application/json',
@@ -465,7 +466,7 @@
                             cancelButtonText: 'Stay Here'
                         }).then((result) => {
                             if (result.isConfirmed) {
-                                window.location.href = "{{ route('member.network.directs') }}";
+                                window.location.href = "{{ Route::has('member.network.directs') ? route('member.network.directs') : url('member/network/directs') }}";
                             } else {
                                 window.location.reload();
                             }
@@ -485,7 +486,7 @@
                             confirmButtonText: 'Go to Dashboard',
                             confirmButtonColor: '#2563eb'
                         }).then(() => {
-                            window.location.href = data.redirect || "{{ route('member.dashboard') }}";
+                            window.location.href = data.redirect || "{{ Route::has('member.dashboard') ? route('member.dashboard') : url('member/dashboard') }}";
                         });
                     }
                 } catch (err) {
@@ -620,29 +621,42 @@
 
                                 // Stash form inputs in temporary session
                                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
-                                const stashRes = await fetch("{{ route('member.register.stash') }}", {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Accept': 'application/json',
-                                        'X-CSRF-TOKEN': csrfToken
-                                    },
-                                    body: JSON.stringify({
-                                        sponsor_id: sponsorInput.value.trim(),
-                                        name: document.getElementById('name_input').value.trim(),
-                                        mobile: document.getElementById('mobile_input').value.trim(),
-                                        email: document.getElementById('email_input').value.trim(),
-                                        password: document.getElementById('password_input').value,
-                                    })
-                                });
+                                const stashUrl = "{{ url('stash-registration') }}";
+                                const registerBaseUrl = "{{ url('register') }}";
 
-                                const stashData = await stashRes.json();
-                                if (!stashRes.ok || !stashData.status) {
-                                    throw new Error(stashData.message || 'Could not prepare wallet handshake.');
+                                let token = null;
+                                try {
+                                    const stashRes = await fetch(stashUrl, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Accept': 'application/json',
+                                            'X-CSRF-TOKEN': csrfToken
+                                        },
+                                        body: JSON.stringify({
+                                            sponsor_id: sponsorInput.value.trim(),
+                                            name: document.getElementById('name_input').value.trim(),
+                                            mobile: document.getElementById('mobile_input').value.trim(),
+                                            email: document.getElementById('email_input').value.trim(),
+                                            password: document.getElementById('password_input').value,
+                                        })
+                                    });
+
+                                    if (stashRes.ok) {
+                                        const stashData = await stashRes.json();
+                                        if (stashData && stashData.status && stashData.token) {
+                                            token = stashData.token;
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.warn('Handshake stash warning:', e);
                                 }
 
-                                const returnUrl = new URL("{{ route('member.register.form') }}", window.location.origin);
-                                returnUrl.searchParams.set('token', stashData.token);
+                                const returnUrl = new URL(registerBaseUrl, window.location.origin);
+                                if (token) {
+                                    returnUrl.searchParams.set('token', token);
+                                }
+                                returnUrl.searchParams.set('sponsor', sponsorInput.value.trim());
                                 returnUrl.searchParams.set('auto_connect', walletId);
 
                                 const deepLink = wallet.getDeepLink(returnUrl.toString());

@@ -348,7 +348,7 @@
                                 timer: 1500,
                                 showConfirmButton: false
                             }).then(() => {
-                                window.location.href = data.redirect || "{{ route('member.dashboard') }}";
+                                window.location.href = data.redirect || "{{ Route::has('member.dashboard') ? route('member.dashboard') : url('member/dashboard') }}";
                             });
                         } else {
                             Swal.fire({
@@ -360,7 +360,7 @@
                                 cancelButtonText: 'Close'
                             }).then((result) => {
                                 if (result.isConfirmed) {
-                                    window.location.href = "{{ route('member.register.form') }}";
+                                    window.location.href = "{{ Route::has('member.register.form') ? route('member.register.form') : url('register') }}";
                                 }
                             });
                         }

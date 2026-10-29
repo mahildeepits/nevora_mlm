@@ -184,29 +184,75 @@ const NevoraWeb3 = (function () {
     }
 
     /**
-     * Map platform id to native WalletConnect URI deep link scheme
+     * Map platform id to verified native & universal WalletConnect URI schemes
+     * Verified against the official WalletConnect Explorer Registry
      */
-    function getWalletConnectScheme(walletId, uri) {
+    function getWalletDeepLinks(walletId, uri) {
         const encodedUri = encodeURIComponent(uri);
         switch (walletId) {
             case 'safepal':
-                return `safepal://wc?uri=${encodedUri}`;
+                return {
+                    universal: `https://link.safepal.io/wc?uri=${encodedUri}`,
+                    native: `safepalwallet://wc?uri=${encodedUri}`,
+                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=safepalwallet;package=io.safepal.wallet;end`,
+                    appScheme: 'safepalwallet://'
+                };
             case 'trust':
-                return `trust://wc?uri=${encodedUri}`;
+                return {
+                    universal: `https://link.trustwallet.com/wc?uri=${encodedUri}`,
+                    native: `trust://wc?uri=${encodedUri}`,
+                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=trust;package=com.wallet.crypto.trustapp;end`,
+                    appScheme: 'trust://'
+                };
             case 'metamask':
-                return `metamask://wc?uri=${encodedUri}`;
+                return {
+                    universal: `https://metamask.app.link/wc?uri=${encodedUri}`,
+                    native: `metamask://wc?uri=${encodedUri}`,
+                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=metamask;package=io.metamask;end`,
+                    appScheme: 'metamask://'
+                };
             case 'tokenpocket':
-                return `tpdapp://wc?uri=${encodedUri}`;
+                return {
+                    universal: 'https://tokenpocket.vip/',
+                    native: `tpoutside://wc?uri=${encodedUri}`,
+                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=tpoutside;package=vip.mytokenpocket;end`,
+                    appScheme: 'tpoutside://'
+                };
             case 'bitget':
-                return `bitkeep://wc?uri=${encodedUri}`;
+                return {
+                    universal: `https://bkapp.vip/wc?uri=${encodedUri}`,
+                    native: `bitkeep://wc?uri=${encodedUri}`,
+                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=bitkeep;package=com.bitkeep.wallet;end`,
+                    appScheme: 'bitkeep://'
+                };
             case 'okx':
-                return `okex://main/wc?uri=${encodedUri}`;
-            case 'coinbase':
-                return `cbwallet://wc?uri=${encodedUri}`;
+                return {
+                    universal: `https://www.okx.com/download?appendQuery=true&deeplink=${encodeURIComponent('okx://wallet/walletConnect?uri=' + uri)}`,
+                    native: `okex://main/wc?uri=${encodedUri}`,
+                    intent: `intent://main/wc?uri=${encodedUri}#Intent;scheme=okex;package=com.okinc.okex.gp;end`,
+                    appScheme: 'okex://'
+                };
             case 'binance':
-                return `bnc://app.binance.com/wc?uri=${encodedUri}`;
+                return {
+                    universal: `https://app.binance.com/cedefi/wc?uri=${encodedUri}`,
+                    native: `bnc://app.binance.com/cedefi/wc?uri=${encodedUri}`,
+                    intent: `intent://app.binance.com/cedefi/wc?uri=${encodedUri}#Intent;scheme=bnc;package=com.binance.dev;end`,
+                    appScheme: 'bnc://app.binance.com/'
+                };
+            case 'coinbase':
+                return {
+                    universal: `https://go.cb-w.com/wc?uri=${encodedUri}`,
+                    native: `cbwallet://wc?uri=${encodedUri}`,
+                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=cbwallet;package=org.toshi;end`,
+                    appScheme: 'cbwallet://'
+                };
             default:
-                return `wc:${uri}`;
+                return {
+                    universal: null,
+                    native: `wc:${uri}`,
+                    intent: null,
+                    appScheme: null
+                };
         }
     }
 
@@ -214,26 +260,8 @@ const NevoraWeb3 = (function () {
      * Map platform id to native App foreground scheme (for post-connection payment authorization)
      */
     function getWalletAppScheme(walletId) {
-        switch (walletId) {
-            case 'safepal':
-                return 'safepal://';
-            case 'trust':
-                return 'trust://';
-            case 'metamask':
-                return 'metamask://';
-            case 'tokenpocket':
-                return 'tpdapp://';
-            case 'bitget':
-                return 'bitkeep://';
-            case 'okx':
-                return 'okex://';
-            case 'coinbase':
-                return 'cbwallet://';
-            case 'binance':
-                return 'bnc://app.binance.com/';
-            default:
-                return null;
-        }
+        const links = getWalletDeepLinks(walletId, '');
+        return links.appScheme || null;
     }
 
     /**
@@ -414,14 +442,19 @@ const NevoraWeb3 = (function () {
 
         // Listener for display_uri to launch mobile app or show QR
         const uriHandler = (uri) => {
-            console.log('WalletConnect session URI generated for', wallet.name);
+            console.log('WalletConnect session URI generated for', wallet.name, uri);
             const isMobile = isMobileDevice();
 
             if (isMobile) {
-                const deepLink = getWalletConnectScheme(wallet.id, uri);
-                
-                // Immediately trigger native wallet app deep link
-                window.location.href = deepLink;
+                const links = getWalletDeepLinks(wallet.id, uri);
+                const primaryUrl = links.universal || links.native;
+
+                // Immediately attempt to launch the wallet app
+                try {
+                    window.location.href = primaryUrl;
+                } catch (e) {
+                    console.warn('Auto redirect notice:', e);
+                }
 
                 // Display prompt in Chrome while user approves in wallet
                 Swal.fire({
@@ -433,10 +466,15 @@ const NevoraWeb3 = (function () {
                         <p class="font-13 text-muted mb-2">We opened <strong>${wallet.name}</strong> on your phone.</p>
                         <p class="font-12 text-muted mb-3">Please unlock your app and tap <strong>Connect</strong>.</p>
                         <div class="d-flex flex-column gap-2">
-                            <a href="${deepLink}" class="btn btn-primary btn-sm rounded-pill py-2 fw-semibold shadow-sm">
-                                <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Re-open ${wallet.name}
+                            <a href="${primaryUrl}" class="btn btn-primary btn-sm rounded-pill py-2 fw-semibold shadow-sm d-flex align-items-center justify-content-center gap-1.5" id="btn-open-wallet-primary">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Open ${wallet.name}
                             </a>
-                            <button type="button" class="btn btn-light btn-sm rounded-pill py-1.5 text-muted border" id="btn-show-wc-qr">
+                            ${links.native && links.native !== primaryUrl ? `
+                                <a href="${links.native}" class="btn btn-light btn-sm rounded-pill py-1.5 text-secondary border font-11 d-flex align-items-center justify-content-center gap-1">
+                                    <i class="fa-solid fa-bolt text-warning"></i> Direct Scheme (${wallet.name})
+                                </a>
+                            ` : ''}
+                            <button type="button" class="btn btn-light btn-sm rounded-pill py-1.5 text-muted border font-11" id="btn-show-wc-qr">
                                 <i class="fa-solid fa-qrcode me-1"></i> Show QR Code
                             </button>
                         </div>

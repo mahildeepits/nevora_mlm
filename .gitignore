@@ -1,4 +1,6 @@
 vendor/
+node_modules/
+*.mp4
 .env
 .htaccess
 storage/framework/

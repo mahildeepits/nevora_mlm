@@ -573,132 +573,39 @@
                             await submitRegistrationForm();
                         }
                     } catch (e) {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Permission Declined',
-                            text: e.message || 'Wallet connection was not approved.',
-                            confirmButtonText: 'Try Again'
-                        });
+                        if (e.code !== 4001 && e.code !== 'ACTION_REJECTED') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Permission Declined',
+                                text: e.message || 'Wallet connection was not approved.',
+                                confirmButtonText: 'Try Again'
+                            });
+                        }
                     }
                     return;
                 }
 
-                // Scenario 2: Outside Web3 (Standard Mobile Chrome / Desktop)
+                // Scenario 2: Outside Web3 (Standard Mobile Chrome / Desktop) -> Genuine WalletConnect v2
                 NevoraWeb3.showWalletModal({
                     title: 'Select Web3 Wallet Platform',
                     subtitle: 'Choose your wallet app to link with your NEVORA account and complete registration',
                     onSelect: async (walletId, wallet) => {
                         try {
-                            // If provider is already present in browser
-                            if (wallet.getProvider && wallet.getProvider()) {
-                                Swal.fire({
-                                    title: `Connecting to ${wallet.name}...`,
-                                    html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Please authorize the connection in your wallet app.</p>',
-                                    allowOutsideClick: false,
-                                    showConfirmButton: false,
-                                    showCancelButton: true,
-                                    cancelButtonText: 'Cancel',
-                                });
-
-                                const res = await NevoraWeb3.connectByPlatform(walletId);
-                                if (!res || !res.address) return;
-
+                            const res = await NevoraWeb3.connectByPlatform(walletId);
+                            if (res && res.address) {
                                 walletInput.value = res.address;
                                 await submitRegistrationForm();
-                                return;
                             }
-
-                            // If on mobile device without injected provider: B TITAN Stash & Deep Link Handshake
-                            if (NevoraWeb3.isMobileDevice() && wallet.getDeepLink) {
-                                Swal.fire({
-                                    title: `Preparing ${wallet.name}...`,
-                                    html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Securing registration handshake...</p>',
-                                    allowOutsideClick: false,
-                                    showConfirmButton: false,
-                                    showCancelButton: true,
-                                    cancelButtonText: 'Cancel',
-                                });
-
-                                // Stash form inputs in temporary session
-                                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
-                                const stashUrl = "{{ url('stash-registration') }}";
-                                const registerBaseUrl = "{{ url('register') }}";
-
-                                let token = null;
-                                try {
-                                    const stashRes = await fetch(stashUrl, {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                            'Accept': 'application/json',
-                                            'X-CSRF-TOKEN': csrfToken
-                                        },
-                                        body: JSON.stringify({
-                                            sponsor_id: sponsorInput.value.trim(),
-                                            name: document.getElementById('name_input').value.trim(),
-                                            mobile: document.getElementById('mobile_input').value.trim(),
-                                            email: document.getElementById('email_input').value.trim(),
-                                            password: document.getElementById('password_input').value,
-                                        })
-                                    });
-
-                                    if (stashRes.ok) {
-                                        const stashData = await stashRes.json();
-                                        if (stashData && stashData.status && stashData.token) {
-                                            token = stashData.token;
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.warn('Handshake stash warning:', e);
-                                }
-
-                                const returnUrl = new URL(registerBaseUrl, window.location.origin);
-                                if (token) {
-                                    returnUrl.searchParams.set('token', token);
-                                }
-                                returnUrl.searchParams.set('sponsor', sponsorInput.value.trim());
-                                returnUrl.searchParams.set('auto_connect', walletId);
-
-                                const deepLink = wallet.getDeepLink(returnUrl.toString());
-                                window.location.href = deepLink;
-
-                                Swal.fire({
-                                    icon: 'info',
-                                    title: `Opening ${wallet.name}...`,
-                                    html: `
-                                        <p class="font-13 text-muted mb-3">
-                                            We've forwarded your registration to <strong>${wallet.name}</strong>.<br>
-                                            Please unlock ${wallet.name} and approve the <strong>Connect</strong> prompt.
-                                        </p>
-                                        <div class="p-2.5 bg-light rounded-3 border text-start font-11 text-muted mb-2">
-                                            <i class="fa-solid fa-circle-check text-success me-1"></i>
-                                            Registration will complete automatically inside ${wallet.name}.
-                                        </div>
-                                    `,
-                                    showConfirmButton: true,
-                                    confirmButtonText: 'Re-open ' + wallet.name,
-                                    showCancelButton: true,
-                                    cancelButtonText: 'Return to Form',
-                                    confirmButtonColor: '#2563eb'
-                                }).then((action) => {
-                                    if (action.isConfirmed) {
-                                        window.location.href = deepLink;
-                                    }
-                                });
-                                return;
-                            }
-
-                            // Desktop browser without extension
-                            throw new Error(`${wallet.name} extension or mobile app not detected in your browser.`);
-
                         } catch (err) {
                             console.error('Registration wallet connection error:', err);
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Wallet Connection Notice',
-                                text: err.message || 'Failed to connect to selected wallet.',
-                                confirmButtonText: 'Try Again'
-                            });
+                            if (err.code !== 4001 && err.code !== 'ACTION_REJECTED' && err.message !== 'Connection request reset') {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Wallet Connection Notice',
+                                    text: err.message || 'Failed to connect to selected wallet.',
+                                    confirmButtonText: 'Try Again'
+                                });
+                            }
                         }
                     }
                 });

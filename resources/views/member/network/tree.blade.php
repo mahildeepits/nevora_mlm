@@ -17,7 +17,7 @@
                     <form action="{{ route('member.network.tree') }}" method="GET" class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 450px;">
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
-                            <input type="text" name="search" class="form-control border-start-0" placeholder="Search downline Member ID (e.g. PM123456)" value="{{ request('search') }}">
+                            <input type="text" name="search" class="form-control border-start-0" placeholder="Search downline Member ID (e.g. NV100001)" value="{{ request('search') }}">
                             <button type="submit" class="btn btn-primary px-3">Search</button>
                         </div>
                     </form>

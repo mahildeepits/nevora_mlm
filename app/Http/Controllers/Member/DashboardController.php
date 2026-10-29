@@ -130,7 +130,7 @@ class DashboardController extends Controller
             'slot_name' => $slot->name,
             'amount' => (float) $routing['amount'],
             'amount_wei' => bcmul((string) $routing['amount'], '1000000000000000000'),
-            'payee_name' => $payeeUser ? $payeeUser->name : 'Company Root',
+            'payee_name' => $payeeUser ? $payeeUser->member_id : 'COMPANY01',
             'payee_member_id' => $payeeUser ? $payeeUser->member_id : 'COMPANY01',
             'payee_address' => $payeeWallet,
             'payee_masked_address' => maskAddress($payeeWallet),

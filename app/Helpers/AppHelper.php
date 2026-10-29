@@ -50,7 +50,7 @@ if (!function_exists('generateMemberId')) {
     function generateMemberId(): string
     {
         do {
-            $id = 'PM' . mt_rand(100000, 999999);
+            $id = 'NV' . mt_rand(100000, 999999);
         } while (User::where('member_id', $id)->exists());
 
         return $id;

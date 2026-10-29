@@ -203,7 +203,7 @@
                                 <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Member ID</label>
                                 <div class="custom-input-group @error('member_id') has-error @enderror">
                                     <span class="input-icon"><i class="fa-solid fa-id-card"></i></span>
-                                    <input type="text" name="member_id" class="form-control font-monospace" placeholder="e.g. PM123456" value="{{ old('member_id') }}" required autofocus>
+                                    <input type="text" name="member_id" class="form-control font-monospace" placeholder="e.g. NV100001 or COMPANY01" value="{{ old('member_id') }}" required autofocus>
                                 </div>
                                 @error('member_id')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
                             </div>
@@ -222,8 +222,19 @@
                             </div>
 
                             {{-- Submit Button --}}
-                            <button type="submit" class="btn btn-auth-submit w-100 mb-3">
+                            <button type="submit" class="btn btn-auth-submit w-100 mb-2">
                                 <i class="fa-solid fa-right-to-bracket me-2"></i> Sign In to Dashboard
+                            </button>
+
+                            <div class="position-relative text-center my-3">
+                                <hr class="border-secondary border-opacity-25 my-0">
+                                <span class="position-absolute top-50 start-50 translate-middle bg-white px-3 font-11 text-muted fw-semibold text-uppercase">Or</span>
+                            </div>
+
+                            {{-- 1-Click Web3 Login (SafePal / Trust / MetaMask) --}}
+                            <button type="button" onclick="loginWithWeb3Wallet()" class="btn btn-outline-primary w-100 rounded-pill py-2.5 font-13 fw-bold d-flex align-items-center justify-content-center gap-2 mb-3 shadow-xs">
+                                <i class="fa-solid fa-wallet text-primary"></i>
+                                <span>1-Click Web3 Wallet Sign In</span>
                             </button>
 
                             {{-- Register Link --}}
@@ -265,6 +276,76 @@
                 eye.classList.remove('fa-eye-slash');
                 eye.classList.add('fa-eye');
             }
+        }
+
+        function loginWithWeb3Wallet() {
+            NevoraWeb3.showWalletModal({
+                title: 'Login with Web3 Wallet',
+                subtitle: 'Select your wallet to sign in instantly without password',
+                onSelect: async (walletId, wallet) => {
+                    try {
+                        Swal.fire({
+                            title: `Connecting to ${wallet.name}...`,
+                            html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Please authorize the connection in your wallet app.</p>',
+                            allowOutsideClick: false,
+                            showConfirmButton: false,
+                        });
+
+                        const res = await NevoraWeb3.connectByPlatform(walletId);
+                        if (!res || !res.address) return;
+
+                        Swal.fire({
+                            title: 'Authenticating...',
+                            html: '<div class="spinner-border text-primary my-3" role="status"></div><p class="font-12 text-muted">Checking NEVORA member record...</p>',
+                            allowOutsideClick: false,
+                            showConfirmButton: false,
+                        });
+
+                        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+                        const response = await fetch("{{ route('member.login.web3') }}", {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken
+                            },
+                            body: JSON.stringify({ wallet_address: res.address })
+                        });
+
+                        const data = await response.json();
+                        if (data.status) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Welcome Back!',
+                                text: data.message,
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => {
+                                window.location.href = data.redirect || "{{ route('member.dashboard') }}";
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Account Not Found',
+                                text: data.message || 'No account linked with this wallet.',
+                                confirmButtonText: 'Register Now',
+                                showCancelButton: true,
+                                cancelButtonText: 'Close'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    window.location.href = "{{ route('member.register.form') }}";
+                                }
+                            });
+                        }
+                    } catch (err) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Login Failed',
+                            text: err.message || 'Could not connect to wallet.',
+                        });
+                    }
+                }
+            });
         }
     </script>
 </body>

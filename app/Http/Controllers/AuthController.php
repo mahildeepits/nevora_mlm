@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -72,7 +74,17 @@ class AuthController extends Controller
     {
         $loggedInUser = Auth::guard('web')->user() ?? Auth::guard('member')->user();
 
-        $sponsorId = $request->get('sponsor') ?: $request->get('ref');
+        $stashed = null;
+        $token = $request->get('token');
+        if ($token) {
+            try {
+                $stashed = Cache::store('file')->get('reg_stash_' . $token);
+            } catch (\Throwable $e) {
+                $stashed = Cache::get('reg_stash_' . $token);
+            }
+        }
+
+        $sponsorId = $request->get('sponsor') ?: ($request->get('ref') ?: ($stashed['sponsor_id'] ?? null));
         $sponsorName = null;
 
         // If sponsorId is not specified in URL, but a user is logged in, default sponsorId to the logged in user
@@ -88,7 +100,47 @@ class AuthController extends Controller
             }
         }
 
-        return view('auth.register', compact('sponsorId', 'sponsorName', 'loggedInUser'));
+        $autoConnect = $request->get('auto_connect');
+
+        return view('auth.register', compact('sponsorId', 'sponsorName', 'loggedInUser', 'stashed', 'autoConnect', 'token'));
+    }
+
+    /**
+     * Stash registration details temporarily (15 mins) for cross-app Web3 handshake (e.g. SafePal DApp browser)
+     */
+    public function stashRegistrationState(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'sponsor_id' => 'required',
+            'name' => 'required|string|max:100',
+            'email' => 'required|email|max:255',
+            'mobile' => 'required|string|max:20',
+            'password' => 'required|min:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        $token = Str::random(32);
+        $stashData = [
+            'sponsor_id' => trim($request->sponsor_id),
+            'name' => trim($request->name),
+            'email' => trim($request->email),
+            'mobile' => trim($request->mobile),
+            'password' => $request->password,
+        ];
+
+        try {
+            Cache::store('file')->put('reg_stash_' . $token, $stashData, now()->addMinutes(15));
+        } catch (\Throwable $e) {
+            Cache::put('reg_stash_' . $token, $stashData, now()->addMinutes(15));
+        }
+
+        return response()->json([
+            'status' => true,
+            'token' => $token,
+        ]);
     }
 
     /**

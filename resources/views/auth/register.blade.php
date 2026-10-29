@@ -203,7 +203,7 @@
                                     </label>
                                     <div class="custom-input-group @error('sponsor_id') has-error @enderror">
                                         <span class="input-icon"><i class="fa-solid fa-user-tag"></i></span>
-                                        <input type="text" name="sponsor_id" id="sponsor_id" class="form-control font-monospace" placeholder="e.g. NV100001 or COMPANY01" value="{{ old('sponsor_id', $sponsorId ?? '') }}" required>
+                                        <input type="text" name="sponsor_id" id="sponsor_id" class="form-control font-monospace" placeholder="e.g. NV100001 or COMPANY01" value="{{ old('sponsor_id', $stashed['sponsor_id'] ?? ($sponsorId ?? '')) }}" required>
                                     </div>
                                     <div id="sponsorStatusBox" class="mt-1 font-12 fw-bold">
                                         @if($sponsorName)
@@ -218,7 +218,7 @@
                                     <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Full Name <span class="text-danger">*</span></label>
                                     <div class="custom-input-group @error('name') has-error @enderror">
                                         <span class="input-icon"><i class="fa-solid fa-user"></i></span>
-                                        <input type="text" name="name" id="name_input" class="form-control" placeholder="Your full name" value="{{ old('name') }}" required>
+                                        <input type="text" name="name" id="name_input" class="form-control" placeholder="Your full name" value="{{ old('name', $stashed['name'] ?? '') }}" required>
                                     </div>
                                     @error('name')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
                                 </div>
@@ -228,7 +228,7 @@
                                     <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Mobile Number <span class="text-danger">*</span></label>
                                     <div class="custom-input-group @error('mobile') has-error @enderror">
                                         <span class="input-icon"><i class="fa-solid fa-phone"></i></span>
-                                        <input type="tel" name="mobile" id="mobile_input" class="form-control" placeholder="+1234567890" value="{{ old('mobile') }}" required>
+                                        <input type="tel" name="mobile" id="mobile_input" class="form-control" placeholder="+1234567890" value="{{ old('mobile', $stashed['mobile'] ?? '') }}" required>
                                     </div>
                                     @error('mobile')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
                                 </div>
@@ -238,7 +238,7 @@
                                     <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Email Address <span class="text-danger">*</span></label>
                                     <div class="custom-input-group @error('email') has-error @enderror">
                                         <span class="input-icon"><i class="fa-solid fa-envelope"></i></span>
-                                        <input type="email" name="email" id="email_input" class="form-control" placeholder="name@domain.com" value="{{ old('email') }}" required>
+                                        <input type="email" name="email" id="email_input" class="form-control" placeholder="name@domain.com" value="{{ old('email', $stashed['email'] ?? '') }}" required>
                                     </div>
                                     <small class="text-muted font-11 d-block mt-1">
                                         <i class="fa-solid fa-envelope-circle-check text-primary me-1"></i> A welcome email with your Member ID and account details will be sent here upon registration.
@@ -251,7 +251,7 @@
                                     <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Password <span class="text-danger">*</span></label>
                                     <div class="custom-input-group @error('password') has-error @enderror">
                                         <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
-                                        <input type="password" name="password" id="password_input" class="form-control" placeholder="Min 6 characters" required>
+                                        <input type="password" name="password" id="password_input" class="form-control" placeholder="Min 6 characters" value="{{ $stashed['password'] ?? '' }}" required>
                                     </div>
                                     @error('password')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
                                 </div>
@@ -261,12 +261,23 @@
                                     <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Confirm Password <span class="text-danger">*</span></label>
                                     <div class="custom-input-group">
                                         <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
-                                        <input type="password" name="password_confirmation" id="password_confirmation_input" class="form-control" placeholder="Re-enter password" required>
+                                        <input type="password" name="password_confirmation" id="password_confirmation_input" class="form-control" placeholder="Re-enter password" value="{{ $stashed['password'] ?? '' }}" required>
+                                    </div>
+                                </div>
+
+                                {{-- Web3 Environment Detection Notice --}}
+                                <div class="col-12 pt-2">
+                                    <div id="web3DetectedNotice" class="d-none alert alert-success border-0 rounded-4 p-2.5 mb-0 font-12 d-flex align-items-center gap-2 shadow-xs">
+                                        <i class="fa-solid fa-circle-check text-success font-18"></i>
+                                        <div>
+                                            <strong id="web3DetectedTitle">Web3 Wallet Active</strong>
+                                            <span class="d-block text-muted font-11">1-Click Automated Permission Ready. Tapping below will prompt your wallet to link automatically.</span>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {{-- Submit Button: Triggers B TITAN Multi-Wallet Selector --}}
-                                <div class="col-12 pt-3">
+                                <div class="col-12 pt-2">
                                     <button type="button" id="btn-open-wallet-reg" class="btn btn-auth-submit w-100 d-flex align-items-center justify-content-center gap-2">
                                         <i class="fa-solid fa-wallet"></i>
                                         <span>Proceed to Link Wallet & Register</span>
@@ -376,133 +387,301 @@
                 return true;
             }
 
-            // Click Handler: Open B TITAN Wallet Selector Modal
-            btnOpenWallet.addEventListener('click', function () {
+            // Submit registration form via AJAX
+            async function submitRegistrationForm() {
+                try {
+                    Swal.fire({
+                        title: 'Creating Your NEVORA Account...',
+                        html: `
+                            <div class="my-3 text-center">
+                                <div class="spinner-border text-primary" role="status"></div>
+                            </div>
+                            <p class="font-12 text-muted mb-1">Linking wallet: <span class="font-monospace text-primary">${walletInput.value.slice(0, 6)}...${walletInput.value.slice(-4)}</span></p>
+                            <small class="text-muted font-11">Generating Member ID and placing in 3-Matrix tree...</small>
+                        `,
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                    });
+
+                    const formData = new FormData(form);
+                    const submitRes = await fetch("{{ route('member.register') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
+                        },
+                        body: formData
+                    });
+
+                    let data;
+                    try {
+                        data = await submitRes.json();
+                    } catch (e) {
+                        throw new Error('Server returned an unexpected response. Please verify details and try again.');
+                    }
+
+                    if (!submitRes.ok || !data.status) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Registration Notice',
+                            text: data.message || 'Could not complete registration. Please check your details.',
+                            confirmButtonText: 'Review Details'
+                        });
+                        return;
+                    }
+
+                    // Differentiate between already logged in (sponsor session preserved) vs new guest
+                    if (data.is_already_logged_in) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Member Registered Successfully! 🎉',
+                            html: `
+                                <p class="text-muted font-13 mb-3">${data.message}</p>
+                                <div class="p-3 bg-light rounded-4 border text-start mb-3 font-12">
+                                    <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
+                                        <span class="text-muted">New Member ID:</span>
+                                        <span class="fw-bold font-monospace text-primary font-14">${data.member_id}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
+                                        <span class="text-muted">Full Name:</span>
+                                        <span class="fw-bold text-dark">${data.name}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
+                                        <span class="text-muted">Sponsor ID:</span>
+                                        <span class="fw-bold font-monospace text-primary">${data.sponsor_id}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Linked Wallet:</span>
+                                        <span class="fw-bold font-monospace text-dark">${data.wallet_address ? (data.wallet_address.slice(0, 6) + '...' + data.wallet_address.slice(-4)) : '-'}</span>
+                                    </div>
+                                </div>
+                                <div class="p-2.5 bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded-3 mb-2 font-11 text-primary text-start">
+                                    <i class="fa-solid fa-circle-check me-1"></i> Your current login session (<strong>${data.current_user_name || ''}</strong>) has been preserved.
+                                </div>
+                            `,
+                            confirmButtonText: 'View My Directs',
+                            confirmButtonColor: '#2563eb',
+                            showCancelButton: true,
+                            cancelButtonText: 'Stay Here'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = "{{ route('member.network.directs') }}";
+                            } else {
+                                window.location.reload();
+                            }
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Registration Successful! 🎉',
+                            html: `
+                                <p class="text-muted font-13 mb-3">${data.message}</p>
+                                <div class="p-3 bg-light rounded-3 border mb-3">
+                                    <div class="font-11 text-muted text-uppercase fw-semibold mb-1">Your Member ID</div>
+                                    <h4 class="fw-bold font-monospace text-primary mb-0">${data.member_id || ''}</h4>
+                                </div>
+                                <small class="text-muted font-11 d-block">A welcome email has been sent to your inbox. Redirecting to dashboard to activate Slot 1...</small>
+                            `,
+                            confirmButtonText: 'Go to Dashboard',
+                            confirmButtonColor: '#2563eb'
+                        }).then(() => {
+                            window.location.href = data.redirect || "{{ route('member.dashboard') }}";
+                        });
+                    }
+                } catch (err) {
+                    console.error('Registration submit error:', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Registration Error',
+                        text: err.message || 'Failed to complete registration.',
+                        confirmButtonText: 'Try Again'
+                    });
+                }
+            }
+
+            // Check for injected Web3 provider on page load
+            const detectedProvider = NevoraWeb3.resolveProvider();
+            if (detectedProvider) {
+                const notice = document.getElementById('web3DetectedNotice');
+                if (notice) {
+                    notice.classList.remove('d-none');
+                    const titleEl = document.getElementById('web3DetectedTitle');
+                    if (titleEl) {
+                        if (window.safepalProvider || window.ethereum?.isSafePal) titleEl.textContent = 'SafePal Wallet Connected';
+                        else if (window.trustwallet || window.ethereum?.isTrust) titleEl.textContent = 'Trust Wallet Connected';
+                        else if (window.tokenpocket || window.ethereum?.isTokenPocket) titleEl.textContent = 'TokenPocket Connected';
+                        else titleEl.textContent = 'Web3 DApp Wallet Connected';
+                    }
+                }
+                const btnSpan = btnOpenWallet.querySelector('span');
+                if (btnSpan) btnSpan.textContent = 'Authorize Permission & Register [1-Click]';
+            }
+
+            // B TITAN Automatic Handshake: Detect ?auto_connect parameter in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const autoConnectWallet = urlParams.get('auto_connect');
+            if (autoConnectWallet) {
+                // Give 400ms for wallet injection inside DApp browser
+                setTimeout(async () => {
+                    const prov = NevoraWeb3.resolveProvider(autoConnectWallet) || window.safepalProvider || window.ethereum;
+                    if (prov) {
+                        try {
+                            Swal.fire({
+                                title: `Connecting to ${autoConnectWallet.toUpperCase()}...`,
+                                html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Authorizing connection in your wallet app...</p>',
+                                allowOutsideClick: false,
+                                showConfirmButton: false,
+                                showCancelButton: true,
+                                cancelButtonText: 'Cancel'
+                            });
+
+                            const res = await NevoraWeb3.connectByPlatform(autoConnectWallet);
+                            if (res && res.address) {
+                                walletInput.value = res.address;
+                                await submitRegistrationForm();
+                            }
+                        } catch (err) {
+                            console.warn('Auto-connect permission error:', err);
+                            Swal.close();
+                        }
+                    }
+                }, 400);
+            }
+
+            // Click Handler: Open B TITAN Wallet Selector Modal or Connect Injected Provider Directly
+            btnOpenWallet.addEventListener('click', async function () {
                 if (!validateForm()) return;
 
+                // Scenario 1: Already inside Web3 DApp Browser (SafePal / Trust / etc.)
+                const activeProvider = NevoraWeb3.resolveProvider();
+                if (activeProvider) {
+                    try {
+                        Swal.fire({
+                            title: 'Authorizing Wallet...',
+                            html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Please approve the connection permission in your wallet...</p>',
+                            allowOutsideClick: false,
+                            showConfirmButton: false,
+                            showCancelButton: true,
+                            cancelButtonText: 'Cancel',
+                        });
+
+                        const activeWalletId = NevoraWeb3.getDetectedWalletId() || 'safepal';
+                        const res = await NevoraWeb3.connectByPlatform(activeWalletId);
+                        if (res && res.address) {
+                            walletInput.value = res.address;
+                            await submitRegistrationForm();
+                        }
+                    } catch (e) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Permission Declined',
+                            text: e.message || 'Wallet connection was not approved.',
+                            confirmButtonText: 'Try Again'
+                        });
+                    }
+                    return;
+                }
+
+                // Scenario 2: Outside Web3 (Standard Mobile Chrome / Desktop)
                 NevoraWeb3.showWalletModal({
                     title: 'Select Web3 Wallet Platform',
                     subtitle: 'Choose your wallet app to link with your NEVORA account and complete registration',
                     onSelect: async (walletId, wallet) => {
                         try {
-                            Swal.fire({
-                                title: `Connecting to ${wallet.name}...`,
-                                html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Please authorize the connection in your wallet app.</p>',
-                                allowOutsideClick: false,
-                                showConfirmButton: false,
-                            });
+                            // If provider is already present in browser
+                            if (wallet.getProvider && wallet.getProvider()) {
+                                Swal.fire({
+                                    title: `Connecting to ${wallet.name}...`,
+                                    html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Please authorize the connection in your wallet app.</p>',
+                                    allowOutsideClick: false,
+                                    showConfirmButton: false,
+                                    showCancelButton: true,
+                                    cancelButtonText: 'Cancel',
+                                });
 
-                            const res = await NevoraWeb3.connectByPlatform(walletId);
-                            if (!res || !res.address) return;
+                                const res = await NevoraWeb3.connectByPlatform(walletId);
+                                if (!res || !res.address) return;
 
-                            walletInput.value = res.address;
-
-                            // Show processing overlay while submitting to Laravel
-                            Swal.fire({
-                                title: 'Creating Your NEVORA Account...',
-                                html: `
-                                    <div class="my-3 text-center">
-                                        <div class="spinner-border text-primary" role="status"></div>
-                                    </div>
-                                    <p class="font-12 text-muted mb-1">Linking wallet: <span class="font-monospace text-primary">${res.address.slice(0, 6)}...${res.address.slice(-4)}</span></p>
-                                    <small class="text-muted font-11">Generating Member ID and placing in 3-Matrix tree...</small>
-                                `,
-                                allowOutsideClick: false,
-                                showConfirmButton: false,
-                            });
-
-                            // Submit via AJAX
-                            const formData = new FormData(form);
-                            const submitRes = await fetch("{{ route('member.register') }}", {
-                                method: 'POST',
-                                headers: {
-                                    'Accept': 'application/json',
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
-                                },
-                                body: formData
-                            });
-
-                            let data;
-                            try {
-                                data = await submitRes.json();
-                            } catch (e) {
-                                throw new Error('Server returned an unexpected response. Please verify details and try again.');
+                                walletInput.value = res.address;
+                                await submitRegistrationForm();
+                                return;
                             }
 
-                            if (!submitRes.ok || !data.status) {
+                            // If on mobile device without injected provider: B TITAN Stash & Deep Link Handshake
+                            if (NevoraWeb3.isMobileDevice() && wallet.getDeepLink) {
                                 Swal.fire({
-                                    icon: 'error',
-                                    title: 'Registration Notice',
-                                    text: data.message || 'Could not complete registration. Please check your details.',
-                                    confirmButtonText: 'Review Details'
+                                    title: `Preparing ${wallet.name}...`,
+                                    html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Securing registration handshake...</p>',
+                                    allowOutsideClick: false,
+                                    showConfirmButton: false,
+                                    showCancelButton: true,
+                                    cancelButtonText: 'Cancel',
+                                });
+
+                                // Stash form inputs in temporary session
+                                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+                                const stashRes = await fetch("{{ route('member.register.stash') }}", {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Accept': 'application/json',
+                                        'X-CSRF-TOKEN': csrfToken
+                                    },
+                                    body: JSON.stringify({
+                                        sponsor_id: sponsorInput.value.trim(),
+                                        name: document.getElementById('name_input').value.trim(),
+                                        mobile: document.getElementById('mobile_input').value.trim(),
+                                        email: document.getElementById('email_input').value.trim(),
+                                        password: document.getElementById('password_input').value,
+                                    })
+                                });
+
+                                const stashData = await stashRes.json();
+                                if (!stashRes.ok || !stashData.status) {
+                                    throw new Error(stashData.message || 'Could not prepare wallet handshake.');
+                                }
+
+                                const returnUrl = new URL("{{ route('member.register.form') }}", window.location.origin);
+                                returnUrl.searchParams.set('token', stashData.token);
+                                returnUrl.searchParams.set('auto_connect', walletId);
+
+                                const deepLink = wallet.getDeepLink(returnUrl.toString());
+                                window.location.href = deepLink;
+
+                                Swal.fire({
+                                    icon: 'info',
+                                    title: `Opening ${wallet.name}...`,
+                                    html: `
+                                        <p class="font-13 text-muted mb-3">
+                                            We've forwarded your registration to <strong>${wallet.name}</strong>.<br>
+                                            Please unlock ${wallet.name} and approve the <strong>Connect</strong> prompt.
+                                        </p>
+                                        <div class="p-2.5 bg-light rounded-3 border text-start font-11 text-muted mb-2">
+                                            <i class="fa-solid fa-circle-check text-success me-1"></i>
+                                            Registration will complete automatically inside ${wallet.name}.
+                                        </div>
+                                    `,
+                                    showConfirmButton: true,
+                                    confirmButtonText: 'Re-open ' + wallet.name,
+                                    showCancelButton: true,
+                                    cancelButtonText: 'Return to Form',
+                                    confirmButtonColor: '#2563eb'
+                                }).then((action) => {
+                                    if (action.isConfirmed) {
+                                        window.location.href = deepLink;
+                                    }
                                 });
                                 return;
                             }
 
-                            // Differentiate between already logged in (sponsor session preserved) vs new guest
-                            if (data.is_already_logged_in) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Member Registered Successfully! 🎉',
-                                    html: `
-                                        <p class="text-muted font-13 mb-3">${data.message}</p>
-                                        <div class="p-3 bg-light rounded-4 border text-start mb-3 font-12">
-                                            <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
-                                                <span class="text-muted">New Member ID:</span>
-                                                <span class="fw-bold font-monospace text-primary font-14">${data.member_id}</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
-                                                <span class="text-muted">Full Name:</span>
-                                                <span class="fw-bold text-dark">${data.name}</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
-                                                <span class="text-muted">Sponsor ID:</span>
-                                                <span class="fw-bold font-monospace text-primary">${data.sponsor_id}</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between">
-                                                <span class="text-muted">Linked Wallet:</span>
-                                                <span class="fw-bold font-monospace text-dark">${data.wallet_address ? (data.wallet_address.slice(0, 6) + '...' + data.wallet_address.slice(-4)) : '-'}</span>
-                                            </div>
-                                        </div>
-                                        <div class="p-2.5 bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded-3 mb-2 font-11 text-primary text-start">
-                                            <i class="fa-solid fa-circle-check me-1"></i> Your current login session (<strong>${data.current_user_name || ''}</strong>) has been preserved.
-                                        </div>
-                                    `,
-                                    confirmButtonText: 'View My Directs',
-                                    confirmButtonColor: '#2563eb',
-                                    showCancelButton: true,
-                                    cancelButtonText: 'Stay Here'
-                                }).then((result) => {
-                                    if (result.isConfirmed) {
-                                        window.location.href = "{{ route('member.network.directs') }}";
-                                    } else {
-                                        window.location.reload();
-                                    }
-                                });
-                            } else {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Registration Successful! 🎉',
-                                    html: `
-                                        <p class="text-muted font-13 mb-3">${data.message}</p>
-                                        <div class="p-3 bg-light rounded-3 border mb-3">
-                                            <div class="font-11 text-muted text-uppercase fw-semibold mb-1">Your Member ID</div>
-                                            <h4 class="fw-bold font-monospace text-primary mb-0">${data.member_id || ''}</h4>
-                                        </div>
-                                        <small class="text-muted font-11 d-block">A welcome email has been sent to your inbox. Redirecting to dashboard to activate Slot 1...</small>
-                                    `,
-                                    confirmButtonText: 'Go to Dashboard',
-                                    confirmButtonColor: '#2563eb'
-                                }).then(() => {
-                                    window.location.href = data.redirect || "{{ route('member.dashboard') }}";
-                                });
-                            }
+                            // Desktop browser without extension
+                            throw new Error(`${wallet.name} extension or mobile app not detected in your browser.`);
 
                         } catch (err) {
                             console.error('Registration wallet connection error:', err);
                             Swal.fire({
                                 icon: 'error',
-                                title: 'Wallet Connection Error',
+                                title: 'Wallet Connection Notice',
                                 text: err.message || 'Failed to connect to selected wallet.',
                                 confirmButtonText: 'Try Again'
                             });

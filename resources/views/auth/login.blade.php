@@ -289,10 +289,37 @@
                             html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Please authorize the connection in your wallet app.</p>',
                             allowOutsideClick: false,
                             showConfirmButton: false,
+                            showCancelButton: true,
+                            cancelButtonText: 'Cancel',
                         });
 
                         const res = await NevoraWeb3.connectByPlatform(walletId);
-                        if (!res || !res.address) return;
+                        if (!res) return;
+
+                        if (res.isRedirecting) {
+                            Swal.fire({
+                                icon: 'info',
+                                title: `Opening ${wallet.name}...`,
+                                html: `
+                                    <p class="font-13 text-muted mb-3">
+                                        We've forwarded your sign-in request to <strong>${wallet.name}</strong>.<br>
+                                        Please unlock your wallet and approve the connection.
+                                    </p>
+                                `,
+                                showConfirmButton: true,
+                                confirmButtonText: 'Re-open ' + wallet.name,
+                                showCancelButton: true,
+                                cancelButtonText: 'Return to Login',
+                                confirmButtonColor: '#2563eb'
+                            }).then((act) => {
+                                if (act.isConfirmed && res.deepLink) {
+                                    window.location.href = res.deepLink;
+                                }
+                            });
+                            return;
+                        }
+
+                        if (!res.address) return;
 
                         Swal.fire({
                             title: 'Authenticating...',

@@ -19,6 +19,7 @@ Route::controller(AuthController::class)->group(function () {
     Route::post('login-web3', 'loginWeb3')->name('member.login.web3');
     Route::get('register', 'registerForm')->name('member.register.form');
     Route::post('register', 'register')->name('member.register');
+    Route::post('stash-registration', 'stashRegistrationState')->name('member.register.stash');
     Route::get('check-sponsor', 'checkSponsor')->name('member.check_sponsor');
     Route::get('logout', 'logout')->name('member.logout');
 });

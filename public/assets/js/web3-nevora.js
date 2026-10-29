@@ -13,6 +13,41 @@
  */
 
 const NevoraWeb3 = (function () {
+    // Inject responsive modal styling dynamically
+    if (typeof document !== 'undefined') {
+        const style = document.createElement('style');
+        style.textContent = `
+            .nevora-wallet-modal-popup {
+                max-width: 95vw !important;
+                box-sizing: border-box !important;
+                margin: auto !important;
+            }
+            .nevora-wallet-modal-popup .swal2-html-container {
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow-x: hidden !important;
+            }
+            @media (max-width: 576px) {
+                .nevora-wallet-modal-popup {
+                    padding: 14px 10px !important;
+                }
+                .nevora-wallet-modal-popup .wallet-option-card {
+                    padding: 9px 7px !important;
+                }
+                .nevora-wallet-modal-popup .wallet-icon-box {
+                    width: 38px !important;
+                    height: 38px !important;
+                    margin-bottom: 6px !important;
+                }
+                .nevora-wallet-modal-popup .wallet-icon-box svg {
+                    width: 26px !important;
+                    height: 26px !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     // Core Blockchain Configuration
     const state = {
         chainId: 56, // BSC Mainnet
@@ -156,7 +191,24 @@ const NevoraWeb3 = (function () {
     }
 
     /**
-     * Resolve provider for a given wallet platform
+     * Detect which wallet platform is actively injected in the browser
+     */
+    function getDetectedWalletId() {
+        if (typeof window === 'undefined') return null;
+        if (window.safepalProvider || window.ethereum?.isSafePal) return 'safepal';
+        if (window.trustwallet || window.ethereum?.isTrust) return 'trust';
+        if (window.okxwallet?.ethereum || window.ethereum?.isOkxWallet) return 'okx';
+        if (window.bitkeep?.ethereum || window.ethereum?.isBitKeep) return 'bitget';
+        if (window.tokenpocket?.ethereum || window.ethereum?.isTokenPocket) return 'tokenpocket';
+        if (window.binance || window.ethereum?.isBinance) return 'binance';
+        if (window.ethereum?.isMetaMask) return 'metamask';
+        if (window.coinbaseWalletExtension || window.ethereum?.isCoinbaseWallet) return 'coinbase';
+        if (window.ethereum) return 'walletconnect';
+        return null;
+    }
+
+    /**
+     * Resolve provider for a given wallet platform with graceful fallback
      */
     function resolveProvider(walletId = null) {
         if (walletId) {
@@ -174,6 +226,7 @@ const NevoraWeb3 = (function () {
         if (window.bitkeep?.ethereum) return window.bitkeep.ethereum;
         if (window.tokenpocket?.ethereum) return window.tokenpocket.ethereum;
         if (window.binance) return window.binance;
+        if (window.coinbaseWalletExtension) return window.coinbaseWalletExtension;
         if (window.ethereum) {
             if (window.ethereum.providers?.length) {
                 return window.ethereum.providers[0];
@@ -219,16 +272,21 @@ const NevoraWeb3 = (function () {
 
     /**
      * Connect to wallet directly by platform ID
+     * @param {string|null} walletId 
+     * @param {string|null} targetDeepLinkUrl Custom deep link URL for mobile wallet dApp browser handshakes
      */
-    async function connectByPlatform(walletId) {
-        const wallet = SUPPORTED_WALLETS.find(w => w.id === walletId) || SUPPORTED_WALLETS[0];
-        const provider = resolveProvider(walletId);
+    async function connectByPlatform(walletId = null, targetDeepLinkUrl = null) {
+        const detectedId = getDetectedWalletId();
+        const effectiveId = walletId || detectedId || 'safepal';
+        const wallet = SUPPORTED_WALLETS.find(w => w.id === effectiveId) || SUPPORTED_WALLETS[0];
+        const provider = resolveProvider(effectiveId) || resolveProvider();
 
         if (!provider) {
             if (isMobileDevice() && wallet.getDeepLink) {
-                const link = wallet.getDeepLink(window.location.href);
+                const targetUrl = targetDeepLinkUrl || window.location.href;
+                const link = wallet.getDeepLink(targetUrl);
                 window.location.href = link;
-                return null;
+                return { isRedirecting: true, deepLink: link, wallet };
             } else {
                 throw new Error(`${wallet.name} extension or app not detected in your browser.`);
             }
@@ -254,7 +312,7 @@ const NevoraWeb3 = (function () {
     }
 
     /**
-     * Generate HTML for the 9-wallet selector grid
+     * Generate HTML for the 9-wallet selector grid (Mobile-Optimized & Responsive)
      */
     function renderWalletGridHtml(actionPrompt = 'Connect to link with NEVORA') {
         const isMobile = isMobileDevice();
@@ -263,37 +321,37 @@ const NevoraWeb3 = (function () {
         SUPPORTED_WALLETS.forEach(w => {
             const isDetected = !!w.getProvider();
             const detectedBadge = isDetected 
-                ? '<span class="badge bg-success bg-opacity-10 text-success font-10 px-2 py-0.5 rounded-pill"><i class="fa-solid fa-circle-check me-1"></i>Detected</span>'
-                : `<span class="badge ${w.badgeClass} font-10 px-2 py-0.5 rounded-pill">${w.badge}</span>`;
+                ? '<span class="badge bg-success bg-opacity-10 text-success font-9 font-sm-10 px-2 py-0.5 rounded-pill"><i class="fa-solid fa-circle-check me-1"></i>Detected</span>'
+                : `<span class="badge ${w.badgeClass} font-9 font-sm-10 px-1.5 px-sm-2 py-0.5 rounded-pill">${w.badge}</span>`;
 
             cardsHtml += `
                 <div class="col-6 col-md-4">
-                    <div class="wallet-option-card p-2.5 p-sm-3 rounded-4 border text-center h-100 cursor-pointer position-relative transition-all"
+                    <div class="wallet-option-card p-2 p-sm-3 rounded-4 border text-center h-100 cursor-pointer position-relative transition-all"
                          onclick="NevoraWeb3.onWalletCardClicked('${w.id}')"
                          data-wallet-id="${w.id}"
                          style="background: #ffffff; cursor: pointer; transition: all 0.2s ease;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1 mb-sm-2">
                             ${detectedBadge}
-                            <i class="fa-solid fa-chevron-right font-10 text-muted opacity-50"></i>
+                            <i class="fa-solid fa-chevron-right font-9 font-sm-10 text-muted opacity-50"></i>
                         </div>
-                        <div class="wallet-icon-box mb-2 d-flex align-items-center justify-content-center mx-auto" style="width: 44px; height: 44px;">
+                        <div class="wallet-icon-box mb-1 mb-sm-2 d-flex align-items-center justify-content-center mx-auto" style="width: 40px; height: 40px;">
                             ${w.iconSvg}
                         </div>
-                        <h6 class="fw-bold mb-0 text-dark font-13">${w.name}</h6>
-                        <small class="text-muted font-11 d-block mt-0.5 text-truncate">${w.tagline}</small>
+                        <h6 class="fw-bold mb-0 text-dark font-12 font-sm-13 text-truncate">${w.name}</h6>
+                        <small class="text-muted font-10 font-sm-11 d-block mt-0.5 text-truncate">${w.tagline}</small>
                     </div>
                 </div>
             `;
         });
 
         return `
-            <div class="p-1">
-                <p class="text-muted font-12 mb-3 text-center">${actionPrompt}</p>
-                <div class="row g-2.5 text-start" id="wallet-selector-grid">
+            <div class="px-1 py-1">
+                <p class="text-muted font-12 mb-2 mb-sm-3 text-center">${actionPrompt}</p>
+                <div class="row g-2 g-sm-2.5 text-start" id="wallet-selector-grid">
                     ${cardsHtml}
                 </div>
-                <div class="mt-3 text-center">
-                    <small class="text-muted font-11">
+                <div class="mt-2.5 mt-sm-3 text-center">
+                    <small class="text-muted font-10 font-sm-11">
                         <i class="fa-solid fa-shield-halved text-primary me-1"></i>
                         Encrypted BSC BEP-20 Web3 Connection. No private keys are ever shared.
                     </small>
@@ -312,15 +370,17 @@ const NevoraWeb3 = (function () {
         const title = options.title || 'Choose Web3 Wallet Platform';
         const subtitle = options.subtitle || 'Select your wallet app to link with your NEVORA account';
         currentModalCallback = options.onSelect;
+        const isMobile = window.innerWidth < 640;
 
         Swal.fire({
-            title: `<span class="fw-bold text-dark font-18">${title}</span>`,
+            title: `<span class="fw-bold text-dark font-16 font-sm-18">${title}</span>`,
             html: renderWalletGridHtml(subtitle),
             showConfirmButton: false,
             showCloseButton: true,
-            width: '680px',
+            width: isMobile ? '94%' : '640px',
             customClass: {
-                popup: 'rounded-4 p-3 p-md-4 shadow-lg border',
+                popup: 'rounded-4 p-2.5 p-sm-4 shadow-lg border nevora-wallet-modal-popup',
+                htmlContainer: 'm-0 p-0 overflow-hidden',
             }
         });
     }
@@ -352,10 +412,33 @@ const NevoraWeb3 = (function () {
                 html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Please approve the connection in your wallet app.</p>',
                 allowOutsideClick: false,
                 showConfirmButton: false,
+                showCancelButton: true,
+                cancelButtonText: 'Cancel',
             });
 
             const res = await connectByPlatform(walletId);
-            if (res) {
+            if (res && res.isRedirecting) {
+                Swal.fire({
+                    icon: 'info',
+                    title: `Launching ${wallet.name}...`,
+                    html: `
+                        <p class="font-12 text-muted mb-2">We opened <strong>${wallet.name}</strong> on your device.</p>
+                        <p class="font-12 text-muted mb-0">Please unlock your app and approve the connection permission.</p>
+                    `,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Re-open ' + wallet.name,
+                    showCancelButton: true,
+                    cancelButtonText: 'Close',
+                    confirmButtonColor: '#2563eb'
+                }).then((action) => {
+                    if (action.isConfirmed && res.deepLink) {
+                        window.location.href = res.deepLink;
+                    }
+                });
+                return;
+            }
+
+            if (res && res.address) {
                 Swal.fire({
                     icon: 'success',
                     title: `${wallet.name} Connected!`,
@@ -458,8 +541,9 @@ const NevoraWeb3 = (function () {
                 </div>
             `;
 
+            const isPaymentModalMobile = window.innerWidth < 640;
             Swal.fire({
-                title: `<span class="fw-bold text-dark font-18">Pay $${parseFloat(amountUsdt).toFixed(2)} USDT to Activate</span>`,
+                title: `<span class="fw-bold text-dark font-16 font-sm-18">Pay $${parseFloat(amountUsdt).toFixed(2)} USDT to Activate</span>`,
                 html: `
                     ${headerSummaryHtml}
                     ${connectedPayBtn}
@@ -467,9 +551,10 @@ const NevoraWeb3 = (function () {
                 `,
                 showConfirmButton: false,
                 showCloseButton: true,
-                width: '680px',
+                width: isPaymentModalMobile ? '94%' : '640px',
                 customClass: {
-                    popup: 'rounded-4 p-3 p-md-4 shadow-lg border',
+                    popup: 'rounded-4 p-2.5 p-sm-4 shadow-lg border nevora-wallet-modal-popup',
+                    htmlContainer: 'm-0 p-0 overflow-hidden',
                 }
             });
 
@@ -651,12 +736,44 @@ const NevoraWeb3 = (function () {
     return {
         SUPPORTED_WALLETS,
         getState: () => state,
+        resolveProvider,
+        getDetectedWalletId,
+        isMobileDevice,
         connectByPlatform,
         showWalletModal,
         onWalletCardClicked,
         openPaymentModal,
         executeTransfer,
         paySlotWithSafePal: (slotNum) => openPaymentModal(slotNum),
+        connectWallet: async (autoBind = true) => {
+            const provider = resolveProvider();
+            if (!provider) {
+                showWalletModal({
+                    title: 'Connect Web3 Wallet',
+                    subtitle: 'Choose your wallet to link with NEVORA',
+                    onSelect: async (walletId, wallet) => {
+                        const res = await connectByPlatform(walletId);
+                        if (res && res.address && autoBind) {
+                            const input = document.getElementById('wallet_address_input') || document.querySelector('.web3-wallet-input');
+                            if (input) {
+                                input.value = res.address;
+                                if (typeof toastr !== 'undefined') toastr.success(`${wallet.name} address populated!`);
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+            const res = await connectByPlatform();
+            if (res && res.address && autoBind) {
+                const input = document.getElementById('wallet_address_input') || document.querySelector('.web3-wallet-input');
+                if (input) {
+                    input.value = res.address;
+                    if (typeof toastr !== 'undefined') toastr.success('Wallet address populated!');
+                }
+            }
+            return res;
+        }
     };
 })();
 

@@ -865,6 +865,23 @@ const NevoraWeb3 = (function () {
     }
 
     /**
+     * Fetch user's BEP-20 USDT balance on BSC Mainnet
+     */
+    async function getUsdtBalance(address) {
+        try {
+            if (!address) return 0;
+            const bscProvider = new ethers.JsonRpcProvider(state.rpcUrl);
+            const usdtContract = new ethers.Contract(state.usdtContractAddress, BEP20_ABI, bscProvider);
+            const rawBalance = await usdtContract.balanceOf(address);
+            const formatted = parseFloat(ethers.formatUnits(rawBalance, 18));
+            return isNaN(formatted) ? 0 : formatted;
+        } catch (e) {
+            console.warn('Failed to query USDT balance via RPC:', e);
+            return 0;
+        }
+    }
+
+    /**
      * Execute on-chain transfer to beneficiary (Injected or WalletConnect v2 Signer)
      */
     async function executeTransfer(payeeAddress, amountWei, slotNumber, payeeName, payeeMemberId, amountUsdt) {
@@ -875,13 +892,44 @@ const NevoraWeb3 = (function () {
         }
 
         try {
+            // Check USDT Balance First
+            const userAddress = state.connectedAddress || (await (new ethers.BrowserProvider(activeProvider)).getSigner()).address;
+            const usdtBalance = await getUsdtBalance(userAddress);
+
+            if (usdtBalance < parseFloat(amountUsdt)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Insufficient Balance',
+                    html: `
+                        <div class="p-3 bg-light rounded-4 text-start mb-3 border">
+                            <div class="d-flex justify-content-between font-13 mb-1.5 pb-1 border-bottom">
+                                <span class="text-muted">Your Wallet Balance:</span>
+                                <span class="fw-bold text-danger font-monospace">$${usdtBalance.toFixed(2)} USDT</span>
+                            </div>
+                            <div class="d-flex justify-content-between font-13">
+                                <span class="text-muted">Required Amount:</span>
+                                <span class="fw-bold text-primary font-monospace">$${parseFloat(amountUsdt).toFixed(2)} USDT</span>
+                            </div>
+                        </div>
+                        <p class="font-12 text-muted mb-0">Your balance is not sufficient. Please deposit at least $${parseFloat(amountUsdt).toFixed(2)} USDT into your wallet on BNB Smart Chain and try again.</p>
+                    `,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#2563eb'
+                });
+                return;
+            }
+
+            const walletLinks = getWalletDeepLinks(state.connectedPlatformId || 'safepal', '');
+            const walletUniversalUrl = walletLinks.universal || walletLinks.native || 'https://link.safepal.io/wc';
+            const walletName = state.connectedPlatform || 'Wallet';
+
             Swal.fire({
                 title: 'Approve in Your Wallet',
                 html: `
                     <div class="p-3 bg-light rounded-4 text-start mb-3 border">
                         <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
                             <span class="text-muted">Transfer Amount:</span>
-                            <span class="fw-bold text-primary font-14">$${parseFloat(amountUsdt).toFixed(2)} USDT</span>
+                            <span class="fw-bold text-success font-14">$${parseFloat(amountUsdt).toFixed(2)} USDT</span>
                         </div>
                         <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
                             <span class="text-muted">Payee Member ID:</span>
@@ -892,23 +940,28 @@ const NevoraWeb3 = (function () {
                             <span class="fw-bold text-dark">BNB Smart Chain (BEP-20)</span>
                         </div>
                     </div>
-                    <div class="d-flex align-items-center justify-content-center gap-2 text-primary font-13 fw-semibold">
+                    <div class="d-flex align-items-center justify-content-center gap-2 text-primary font-13 fw-semibold mb-3">
                         <i class="fa-solid fa-fingerprint fa-bounce fa-lg"></i>
-                        <span>Please authorize in your wallet app with PIN or Fingerprint...</span>
+                        <span>Please authorize in ${walletName} with PIN or Fingerprint...</span>
                     </div>
+
+                    ${isMobileDevice() && state.isWalletConnect ? `
+                        <a href="${walletUniversalUrl}" class="btn btn-primary rounded-pill py-2.5 w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 text-decoration-none mb-2">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open ${walletName} to Authorize
+                        </a>
+                    ` : ''}
                 `,
                 allowOutsideClick: false,
                 showConfirmButton: false,
+                showCancelButton: true,
+                cancelButtonText: 'Cancel'
             });
 
-            // If mobile device connected via WalletConnect, bring the wallet app to the foreground
-            if (isMobileDevice() && state.isWalletConnect) {
-                const appScheme = getWalletAppScheme(state.connectedPlatformId);
-                if (appScheme) {
-                    setTimeout(() => {
-                        window.location.href = appScheme;
-                    }, 300);
-                }
+            // If mobile device connected via WalletConnect, attempt foreground switch
+            if (isMobileDevice() && state.isWalletConnect && walletUniversalUrl) {
+                setTimeout(() => {
+                    window.location.href = walletUniversalUrl;
+                }, 300);
             }
 
             const browserProvider = new ethers.BrowserProvider(activeProvider);
@@ -998,6 +1051,253 @@ const NevoraWeb3 = (function () {
     }
 
     /**
+     * Atomic 1-Step Registration Flow:
+     * 1. Connect wallet (SafePal / etc.)
+     * 2. Pre-check USDT balance (>= 15.00 USDT)
+     * 3. Fetch payee preview for sponsor
+     * 4. Prompt user to authorize 15 USDT transfer in wallet
+     * 5. Catch tx.hash on BSC
+     * 6. POST /register with tx_hash -> User created with is_paid = true & placed in tree
+     */
+    async function executePayToRegister(formInputs, walletId = null) {
+        try {
+            const detectedId = getDetectedWalletId();
+            const chosenId = walletId || detectedId || 'safepal';
+            const wallet = SUPPORTED_WALLETS.find(w => w.id === chosenId) || SUPPORTED_WALLETS[0];
+
+            Swal.fire({
+                title: `Connecting to ${wallet.name}...`,
+                html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Please approve the connection in your wallet app.</p>',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                showCancelButton: true,
+                cancelButtonText: 'Cancel',
+            });
+
+            const connRes = await connectByPlatform(chosenId);
+            if (!connRes || !connRes.address) {
+                return;
+            }
+
+            const connectedAddress = connRes.address.toLowerCase();
+
+            // Populate form wallet address display
+            const walletInput = document.getElementById('wallet_address_input') || document.querySelector('.web3-wallet-input');
+            if (walletInput) {
+                walletInput.value = connectedAddress;
+            }
+
+            // Check USDT Balance on BSC
+            Swal.fire({
+                title: 'Checking USDT Balance...',
+                html: '<div class="spinner-border text-primary my-3" role="status"></div><p class="font-12 text-muted">Verifying wallet balance on BNB Smart Chain...</p>',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+            });
+
+            const usdtBalance = await getUsdtBalance(connectedAddress);
+
+            // Strict check: if less than 15.00 USDT, BLOCK REGISTRATION
+            if (usdtBalance < 15.0) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Insufficient Balance',
+                    html: `
+                        <div class="p-3 bg-light rounded-4 text-start mb-3 border">
+                            <div class="d-flex justify-content-between font-13 mb-1.5 pb-1 border-bottom">
+                                <span class="text-muted">Your Wallet Balance:</span>
+                                <span class="fw-bold text-danger font-monospace">$${usdtBalance.toFixed(2)} USDT</span>
+                            </div>
+                            <div class="d-flex justify-content-between font-13">
+                                <span class="text-muted">Required to Register:</span>
+                                <span class="fw-bold text-primary font-monospace">$15.00 USDT</span>
+                            </div>
+                        </div>
+                        <p class="font-12 text-muted mb-1">Your balance is not sufficient to register.</p>
+                        <p class="font-11 text-muted mb-0">Please deposit at least 15.00 USDT into your wallet on BNB Smart Chain and try again.</p>
+                        <div class="mt-2 text-danger font-11 fw-semibold">
+                            <i class="fa-solid fa-circle-exclamation me-1"></i> Your account has NOT been registered.
+                        </div>
+                    `,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#2563eb'
+                });
+                return;
+            }
+
+            // Resolve matrix payee for this registration
+            Swal.fire({
+                title: 'Resolving Payee Route...',
+                html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Calculating 3-matrix eligible beneficiary...</p>',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+            });
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const payeeRes = await fetch('/register-payee-preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({
+                    sponsor_id: formInputs.sponsor_id
+                })
+            });
+
+            const payeeData = await payeeRes.json();
+            if (!payeeData || !payeeData.status) {
+                throw new Error(payeeData?.message || 'Could not resolve payment payee route.');
+            }
+
+            const payeeAddress = payeeData.payee_address;
+            const payeeMemberId = payeeData.payee_member_id;
+            const payeeMasked = payeeData.payee_masked_address || (payeeAddress.slice(0, 6) + '...' + payeeAddress.slice(-4));
+            const amountUsdt = payeeData.amount || 15.0;
+            const amountWei = BigInt(payeeData.amount_wei || '15000000000000000000');
+
+            const walletLinks = getWalletDeepLinks(wallet.id, '');
+            const walletUniversalUrl = walletLinks.universal || walletLinks.native || 'https://link.safepal.io/wc';
+
+            Swal.fire({
+                title: 'Authorize $15 USDT in Wallet',
+                html: `
+                    <div class="p-3 bg-light rounded-4 text-start mb-3 border">
+                        <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
+                            <span class="text-muted">Registration Fee:</span>
+                            <span class="fw-bold text-success font-14">$${parseFloat(amountUsdt).toFixed(2)} USDT</span>
+                        </div>
+                        <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
+                            <span class="text-muted">Payee Member ID:</span>
+                            <span class="fw-bold font-monospace text-primary">${payeeMemberId}</span>
+                        </div>
+                        <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
+                            <span class="text-muted">Payee Wallet:</span>
+                            <span class="fw-bold font-monospace text-dark">${payeeMasked}</span>
+                        </div>
+                        <div class="d-flex justify-content-between font-12">
+                            <span class="text-muted">Network:</span>
+                            <span class="fw-bold text-dark">BNB Smart Chain (BEP-20)</span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-center gap-2 text-primary font-13 fw-semibold mb-3">
+                        <i class="fa-solid fa-fingerprint fa-bounce fa-lg"></i>
+                        <span>Please authorize in ${wallet.name} with PIN or Fingerprint...</span>
+                    </div>
+
+                    ${isMobileDevice() && state.isWalletConnect ? `
+                        <a href="${walletUniversalUrl}" class="btn btn-primary rounded-pill py-2.5 w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 text-decoration-none mb-2" id="btn-open-wallet-pay">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open ${wallet.name} to Authorize
+                        </a>
+                    ` : ''}
+                `,
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                showCancelButton: true,
+                cancelButtonText: 'Cancel Registration',
+            });
+
+            if (isMobileDevice() && state.isWalletConnect && walletUniversalUrl) {
+                setTimeout(() => {
+                    window.location.href = walletUniversalUrl;
+                }, 300);
+            }
+
+            const activeProvider = state.activeWCProvider || resolveProvider();
+            const browserProvider = new ethers.BrowserProvider(activeProvider);
+            const signer = await browserProvider.getSigner();
+            const usdtContract = new ethers.Contract(state.usdtContractAddress, BEP20_ABI, signer);
+
+            const tx = await usdtContract.transfer(payeeAddress, amountWei);
+
+            Swal.fire({
+                title: 'Validating on BSC...',
+                html: `
+                    <div class="my-3 text-center">
+                        <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;"></div>
+                    </div>
+                    <p class="font-13 text-muted mb-2">Payment broadcasted successfully!</p>
+                    <p class="font-monospace font-11 text-muted text-break p-2 bg-light rounded border">${tx.hash}</p>
+                    <small class="text-muted font-11"><i class="fa-solid fa-clock me-1"></i> Confirming block on BSC & activating ID (~3 seconds)...</small>
+                `,
+                allowOutsideClick: false,
+                showConfirmButton: false,
+            });
+
+            await tx.wait(1);
+
+            const regPayload = {
+                ...formInputs,
+                wallet_address: connectedAddress,
+                tx_hash: tx.hash
+            };
+
+            const regRes = await fetch('/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify(regPayload)
+            });
+
+            const regData = await regRes.json();
+
+            if (regData && regData.status) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Registration & Activation Successful! 🎉',
+                    html: `
+                        <p class="text-muted font-13 mb-3">${regData.message}</p>
+                        <div class="p-3 bg-light rounded-4 border text-start mb-3 font-12">
+                            <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
+                                <span class="text-muted">Your Member ID:</span>
+                                <span class="fw-bold font-monospace text-primary font-14">${regData.member_id}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
+                                <span class="text-muted">Linked Wallet:</span>
+                                <span class="fw-bold font-monospace text-dark">${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Status:</span>
+                                <span class="badge bg-success text-white px-2 py-0.5 rounded-pill"><i class="fa-solid fa-circle-check me-1"></i>Slot 1 Paid & Active</span>
+                            </div>
+                        </div>
+                    `,
+                    confirmButtonText: 'Go to Dashboard',
+                    confirmButtonColor: '#2563eb',
+                    allowOutsideClick: false
+                }).then(() => {
+                    window.location.href = regData.redirect || '/member/dashboard';
+                });
+            } else {
+                throw new Error(regData?.message || 'Failed to complete registration.');
+            }
+
+        } catch (err) {
+            console.error('Pay to register error:', err);
+            if (err.code === 'ACTION_REJECTED' || err.code === 4001) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Payment Cancelled',
+                    text: 'You declined the transfer in your wallet app. Your account was NOT registered.',
+                    confirmButtonText: 'OK'
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Registration Error',
+                    text: err.reason || err.message || 'Could not complete registration payment.',
+                    confirmButtonText: 'Try Again'
+                });
+            }
+        }
+    }
+
+    /**
      * Restore previous active session on load
      */
     async function initAutoSession() {
@@ -1044,7 +1344,11 @@ const NevoraWeb3 = (function () {
     }
 
     if (typeof window !== 'undefined') {
-        window.addEventListener('DOMContentLoaded', initAutoSession);
+        if (document.readyState === 'loading') {
+            window.addEventListener('DOMContentLoaded', initAutoSession);
+        } else {
+            initAutoSession();
+        }
     }
 
     return {
@@ -1061,6 +1365,8 @@ const NevoraWeb3 = (function () {
         showQRCodeModal,
         openPaymentModal,
         executeTransfer,
+        getUsdtBalance,
+        executePayToRegister,
         paySlotWithSafePal: (slotNum) => openPaymentModal(slotNum),
         connectWallet: async (autoBind = true) => {
             const provider = resolveProvider();

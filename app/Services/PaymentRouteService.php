@@ -89,6 +89,73 @@ class PaymentRouteService
     }
 
     /**
+     * Resolve the assigned payee for a new user registration under a given sponsor
+     */
+    public function resolvePayeeForNewRegistration(string $sponsorMemberId, int $slotNumber = 1): array
+    {
+        $slot = Slot::where('slot_number', $slotNumber)->firstOrFail();
+        $sponsor = User::where('member_id', $sponsorMemberId)->first();
+        if (!$sponsor) {
+            $sponsor = User::where('member_id', 'COMPANY01')->firstOrFail();
+        }
+
+        $treePlacementService = app(TreePlacementService::class);
+        $preview = $treePlacementService->previewNextPlacement($sponsor, $slot);
+        $parentPos = $preview['parent_position'];
+        $legPosition = $preview['leg_position'];
+
+        $targetPayeePos = null;
+        if ($legPosition == 3) {
+            // Leg 3 pays direct parent
+            $targetPayeePos = $parentPos;
+        } elseif ($legPosition == 1) {
+            // Leg 1 pays Upline 1 (parent's parent)
+            $upline1Pos = $parentPos->parent_position_id ? SlotPosition::find($parentPos->parent_position_id) : null;
+            $targetPayeePos = $upline1Pos ?: $parentPos;
+        } else {
+            // Leg 2 pays Upline 2 (grandparent's parent)
+            $upline1Pos = $parentPos->parent_position_id ? SlotPosition::find($parentPos->parent_position_id) : null;
+            $upline2Pos = ($upline1Pos && $upline1Pos->parent_position_id) ? SlotPosition::find($upline1Pos->parent_position_id) : null;
+            $targetPayeePos = $upline2Pos ?: ($upline1Pos ?: $parentPos);
+        }
+
+        $payeeUser = User::findOrFail($targetPayeePos->user_id);
+        $nextPaymentNumber = $targetPayeePos->received_payments_count + 1;
+
+        $companyReserveWallet = getSetting('company_reserve_wallet', env('COMPANY_RESERVE_WALLET', '0x1111111111111111111111111111111111111111'));
+        $companyRevenueWallet = getSetting('company_revenue_wallet', env('COMPANY_REVENUE_WALLET', '0x2222222222222222222222222222222222222222'));
+
+        $destinationWallet = $payeeUser->wallet_address;
+        $category = 'Slot Income';
+        $isCompanyWallet = false;
+
+        if ($slot->slot_number < 12) {
+            if (in_array($nextPaymentNumber, [3, 4, 5])) {
+                $destinationWallet = $companyReserveWallet;
+                $category = 'Reserved for Next Slot';
+                $isCompanyWallet = true;
+            } elseif ($nextPaymentNumber == 13) {
+                $category = 'Recycle Income';
+            }
+        }
+
+        if (!$destinationWallet) {
+            $destinationWallet = $companyRevenueWallet;
+            $isCompanyWallet = true;
+        }
+
+        return [
+            'payee_user' => $payeeUser,
+            'target_position' => $targetPayeePos,
+            'wallet_address' => $destinationWallet,
+            'amount' => $slot->entry_fee,
+            'category' => $category,
+            'payment_number' => $nextPaymentNumber,
+            'is_company_wallet' => $isCompanyWallet,
+        ];
+    }
+
+    /**
      * Resolve payee for a Recycle Pool activation
      */
     public function resolveRecyclePayee(RecyclePosition $position, Slot $slot): array

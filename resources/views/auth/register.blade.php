@@ -185,13 +185,13 @@
                                         <span class="d-block text-muted font-11">Registering a new downline will place them under this sponsor and preserve your current login session.</span>
                                     </div>
                                 </div>
-                                <a href="{{ route('member.dashboard') }}" class="btn btn-outline-info btn-sm rounded-pill font-11 fw-bold px-3">
+                                <a href="{{ Route::has('member.dashboard') ? route('member.dashboard') : url('member/dashboard') }}" class="btn btn-outline-info btn-sm rounded-pill font-11 fw-bold px-3">
                                     Dashboard
                                 </a>
                             </div>
                         @endif
 
-                        <form method="POST" action="{{ route('member.register') }}" id="register-form">
+                        <form method="POST" action="{{ Route::has('member.register') ? route('member.register') : url('register') }}" id="register-form">
                             @csrf
                             <input type="hidden" name="wallet_address" id="wallet_address" value="">
 
@@ -276,17 +276,20 @@
                                     </div>
                                 </div>
 
-                                {{-- Submit Button: Triggers B TITAN Multi-Wallet Selector --}}
+                                {{-- Submit Button: Triggers Atomic Pay-to-Register Flow --}}
                                 <div class="col-12 pt-2">
                                     <button type="button" id="btn-open-wallet-reg" class="btn btn-auth-submit w-100 d-flex align-items-center justify-content-center gap-2">
-                                        <i class="fa-solid fa-wallet"></i>
-                                        <span>Proceed to Link Wallet & Register</span>
+                                        <i class="fa-solid fa-bolt text-warning"></i>
+                                        <span>Register & Pay $15 USDT [1-Click Web3]</span>
                                     </button>
+                                    <div class="text-center mt-2 text-muted font-11">
+                                        <i class="fa-solid fa-shield-halved text-success me-1"></i> Instant SafePal / Web3 Authorization • Verified on BNB Smart Chain
+                                    </div>
                                 </div>
 
                                 <div class="col-12 text-center pt-2">
                                     <span class="text-muted font-13">Already have an account?</span>
-                                    <a href="{{ route('member.login.form') }}" class="font-13 fw-bold text-primary ms-1 text-decoration-none">
+                                    <a href="{{ Route::has('member.login.form') ? route('member.login.form') : url('login') }}" class="font-13 fw-bold text-primary ms-1 text-decoration-none">
                                         Sign In
                                     </a>
                                 </div>
@@ -515,98 +518,36 @@
                     }
                 }
                 const btnSpan = btnOpenWallet.querySelector('span');
-                if (btnSpan) btnSpan.textContent = 'Authorize Permission & Register [1-Click]';
+                if (btnSpan) btnSpan.textContent = 'Register & Pay $15 USDT [1-Click Web3]';
             }
 
-            // B TITAN Automatic Handshake: Detect ?auto_connect parameter in URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const autoConnectWallet = urlParams.get('auto_connect');
-            if (autoConnectWallet) {
-                // Give 400ms for wallet injection inside DApp browser
-                setTimeout(async () => {
-                    const prov = NevoraWeb3.resolveProvider(autoConnectWallet) || window.safepalProvider || window.ethereum;
-                    if (prov) {
-                        try {
-                            Swal.fire({
-                                title: `Connecting to ${autoConnectWallet.toUpperCase()}...`,
-                                html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Authorizing connection in your wallet app...</p>',
-                                allowOutsideClick: false,
-                                showConfirmButton: false,
-                                showCancelButton: true,
-                                cancelButtonText: 'Cancel'
-                            });
-
-                            const res = await NevoraWeb3.connectByPlatform(autoConnectWallet);
-                            if (res && res.address) {
-                                walletInput.value = res.address;
-                                await submitRegistrationForm();
-                            }
-                        } catch (err) {
-                            console.warn('Auto-connect permission error:', err);
-                            Swal.close();
-                        }
-                    }
-                }, 400);
-            }
-
-            // Click Handler: Open B TITAN Wallet Selector Modal or Connect Injected Provider Directly
+            // Click Handler: Triggers Atomic Pay-to-Register Flow
             btnOpenWallet.addEventListener('click', async function () {
                 if (!validateForm()) return;
+
+                const formInputs = {
+                    sponsor_id: sponsorInput.value.trim(),
+                    name: document.getElementById('name_input').value.trim(),
+                    mobile: document.getElementById('mobile_input').value.trim(),
+                    email: document.getElementById('email_input').value.trim(),
+                    password: document.getElementById('password_input').value,
+                    password_confirmation: document.getElementById('password_confirmation_input').value
+                };
 
                 // Scenario 1: Already inside Web3 DApp Browser (SafePal / Trust / etc.)
                 const activeProvider = NevoraWeb3.resolveProvider();
                 if (activeProvider) {
-                    try {
-                        Swal.fire({
-                            title: 'Authorizing Wallet...',
-                            html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Please approve the connection permission in your wallet...</p>',
-                            allowOutsideClick: false,
-                            showConfirmButton: false,
-                            showCancelButton: true,
-                            cancelButtonText: 'Cancel',
-                        });
-
-                        const activeWalletId = NevoraWeb3.getDetectedWalletId() || 'safepal';
-                        const res = await NevoraWeb3.connectByPlatform(activeWalletId);
-                        if (res && res.address) {
-                            walletInput.value = res.address;
-                            await submitRegistrationForm();
-                        }
-                    } catch (e) {
-                        if (e.code !== 4001 && e.code !== 'ACTION_REJECTED') {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Permission Declined',
-                                text: e.message || 'Wallet connection was not approved.',
-                                confirmButtonText: 'Try Again'
-                            });
-                        }
-                    }
+                    const activeWalletId = NevoraWeb3.getDetectedWalletId() || 'safepal';
+                    await NevoraWeb3.executePayToRegister(formInputs, activeWalletId);
                     return;
                 }
 
-                // Scenario 2: Outside Web3 (Standard Mobile Chrome / Desktop) -> Genuine WalletConnect v2
+                // Scenario 2: Outside Web3 (Standard Mobile Chrome / Desktop) -> WalletConnect v2
                 NevoraWeb3.showWalletModal({
-                    title: 'Select Web3 Wallet Platform',
-                    subtitle: 'Choose your wallet app to link with your NEVORA account and complete registration',
+                    title: 'Select Web3 Wallet to Register & Pay',
+                    subtitle: 'Choose your wallet to authorize $15.00 USDT and activate your account',
                     onSelect: async (walletId, wallet) => {
-                        try {
-                            const res = await NevoraWeb3.connectByPlatform(walletId);
-                            if (res && res.address) {
-                                walletInput.value = res.address;
-                                await submitRegistrationForm();
-                            }
-                        } catch (err) {
-                            console.error('Registration wallet connection error:', err);
-                            if (err.code !== 4001 && err.code !== 'ACTION_REJECTED' && err.message !== 'Connection request reset') {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Wallet Connection Notice',
-                                    text: err.message || 'Failed to connect to selected wallet.',
-                                    confirmButtonText: 'Try Again'
-                                });
-                            }
-                        }
+                        await NevoraWeb3.executePayToRegister(formInputs, walletId);
                     }
                 });
             });

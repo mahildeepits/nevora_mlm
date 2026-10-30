@@ -3,8 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Slot;
+use App\Models\SlotPosition;
 use App\Services\TreePlacementService;
 use App\Services\OtpService;
+use App\Services\PaymentRouteService;
+use App\Services\P2PBlockchainService;
+use App\Services\MatrixIncomeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -12,17 +17,29 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
     protected TreePlacementService $treePlacementService;
     protected OtpService $otpService;
+    protected PaymentRouteService $paymentRouteService;
+    protected P2PBlockchainService $blockchainService;
+    protected MatrixIncomeService $matrixIncomeService;
 
-    public function __construct(TreePlacementService $treePlacementService, OtpService $otpService)
-    {
+    public function __construct(
+        TreePlacementService $treePlacementService,
+        OtpService $otpService,
+        PaymentRouteService $paymentRouteService,
+        P2PBlockchainService $blockchainService,
+        MatrixIncomeService $matrixIncomeService
+    ) {
         $this->treePlacementService = $treePlacementService;
         $this->otpService = $otpService;
+        $this->paymentRouteService = $paymentRouteService;
+        $this->blockchainService = $blockchainService;
+        $this->matrixIncomeService = $matrixIncomeService;
     }
 
     public function loginForm()
@@ -209,6 +226,40 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Preview the eligible payee address and amount ($15 USDT) for a new registration
+     */
+    public function getRegistrationPayee(Request $request)
+    {
+        $sponsorId = $request->input('sponsor_id');
+        $slotNumber = 1;
+
+        $slot = Slot::where('slot_number', $slotNumber)->firstOrFail();
+        $sponsor = User::where('member_id', $sponsorId)->first();
+        if (!$sponsor || !$sponsor->is_paid) {
+            $sponsor = User::where('member_id', 'COMPANY01')->firstOrFail();
+        }
+
+        $routing = $this->paymentRouteService->resolvePayeeForNewRegistration($sponsor->member_id, $slotNumber);
+        $payeeUser = $routing['payee_user'] ?? null;
+        $payeeWallet = $routing['wallet_address'];
+
+        return response()->json([
+            'status' => true,
+            'slot_number' => 1,
+            'slot_name' => $slot->name,
+            'amount' => (float) $routing['amount'],
+            'amount_wei' => bcmul((string) $routing['amount'], '1000000000000000000'),
+            'payee_name' => $payeeUser ? $payeeUser->name : 'Eligible Beneficiary',
+            'payee_member_id' => $payeeUser ? $payeeUser->member_id : 'COMPANY01',
+            'payee_address' => $payeeWallet,
+            'payee_masked_address' => maskAddress($payeeWallet),
+            'usdt_contract' => env('USDT_CONTRACT_ADDRESS', '0x55d398326f99059fF775485246999027B3197955'),
+            'chain_id' => (int) env('BSC_CHAIN_ID', 56),
+            'rpc_url' => env('BSC_RPC_URL', 'https://bsc-dataseed.binance.org'),
+        ]);
+    }
+
     public function register(Request $request)
     {
         $alreadyLoggedIn = Auth::guard('web')->user() ?? Auth::guard('member')->user();
@@ -223,11 +274,13 @@ class AuthController extends Controller
                 'required',
                 'regex:/^0x[a-fA-F0-9]{40}$/',
             ],
+            'tx_hash' => 'required|string',
         ], [
             'mobile.required' => 'Mobile number is required.',
             'mobile.unique' => 'This mobile number is already registered to another account. Please use a unique phone number.',
             'wallet_address.required' => 'Please connect your SafePal or Web3 wallet to complete registration.',
             'wallet_address.regex' => 'Please connect a valid BSC (BEP-20) wallet address starting with 0x (42 characters).',
+            'tx_hash.required' => 'Payment authorization required. Please approve the $15 USDT transfer in your wallet.',
         ]);
 
         if ($validator->fails()) {
@@ -274,36 +327,62 @@ class AuthController extends Controller
                 : back()->withErrors(['sponsor_id' => $msg])->withInput();
         }
 
-        // Create new user (unpaid status by default)
-        $memberId = generateMemberId();
+        // Resolve designated payee for this registration in Slot 1
+        $slot1 = Slot::where('slot_number', 1)->firstOrFail();
+        $routing = $this->paymentRouteService->resolvePayeeForNewRegistration($sponsor->member_id, 1);
+        $payeeAddress = $routing['wallet_address'];
+        $expectedAmount = (float) $routing['amount'];
+        $providedHash = trim($request->input('tx_hash'));
 
-        $user = User::create([
-            'member_id' => $memberId,
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'mobile' => $request->mobile,
-            'sponsor_id' => $sponsor->member_id,
-            'role_id' => 2,
-            'is_paid' => false, // placed immediately in tree, activates at will!
-            'current_slot_id' => 1,
-            'wallet_address' => $walletAddress,
-        ]);
+        // Verify on-chain transfer on BNB Smart Chain
+        $verification = $this->blockchainService->verifyTransfer($walletAddress, $payeeAddress, $expectedAmount, $providedHash);
 
-        // Place immediately in 3-Matrix working tree under sponsor
-        $this->treePlacementService->placeInWorkingTree($user, $sponsor);
+        if (!$verification['status']) {
+            return ($request->expectsJson() || $request->ajax())
+                ? response()->json(['status' => false, 'message' => $verification['message'] ?? 'Transaction could not be verified on BNB Smart Chain. Account was not created.'], 400)
+                : back()->withErrors(['tx_hash' => $verification['message']])->withInput();
+        }
+
+        // Atomic registration: Create user directly as active paid, place in tree, and distribute commission
+        $user = DB::transaction(function () use ($request, $sponsor, $walletAddress, $slot1, $verification) {
+            $memberId = generateMemberId();
+
+            $newUser = User::create([
+                'member_id' => $memberId,
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'mobile' => $request->mobile,
+                'sponsor_id' => $sponsor->member_id,
+                'role_id' => 2,
+                'is_paid' => true, // 100% PAID UPON REGISTRATION!
+                'paid_at' => now(),
+                'current_slot_id' => 1,
+                'wallet_address' => $walletAddress,
+            ]);
+
+            // Place in 3-Matrix working tree
+            $this->treePlacementService->placeInWorkingTree($newUser, $sponsor);
+
+            // Process slot activation & distribute 15 USDT to payee
+            $this->matrixIncomeService->processSlotActivation($newUser, $slot1, $verification);
+
+            return $newUser;
+        });
+
+        $memberId = $user->member_id;
 
         // Send Welcome Email
         try {
             Mail::send('emails.welcome', ['user' => $user, 'sponsor' => $sponsor], function ($message) use ($user) {
                 $message->to($user->email)
-                        ->subject('Welcome to NEVORA - Account Created');
+                        ->subject('Welcome to NEVORA - Account Activated');
             });
         } catch (\Throwable $th) {
             Log::warning("Welcome email sending skipped/failed for {$user->email}: " . $th->getMessage());
         }
 
-        // Condition 1: If a user was ALREADY logged in on this device (e.g. sponsor), keep them logged in!
+        // Condition 1: If a user was ALREADY logged in on this device (e.g. sponsor registering a direct), keep them logged in!
         if ($alreadyLoggedIn) {
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
@@ -315,12 +394,13 @@ class AuthController extends Controller
                     'name' => $user->name,
                     'sponsor_id' => $sponsor->member_id,
                     'wallet_address' => $walletAddress,
-                    'message' => "Member {$user->name} (ID: {$memberId}) has been successfully registered under Sponsor {$sponsor->member_id}!",
+                    'tx_hash' => $verification['tx_hash'],
+                    'message' => "Member {$user->name} (ID: {$memberId}) has been successfully registered and activated in Slot 1 under Sponsor {$sponsor->member_id}!",
                     'redirect' => route('member.network.directs')
                 ]);
             }
 
-            return redirect()->route('member.network.directs')->with('success', "Member {$user->name} (ID: {$memberId}) successfully registered under {$sponsor->member_id}!");
+            return redirect()->route('member.network.directs')->with('success', "Member {$user->name} (ID: {$memberId}) successfully registered and activated in Slot 1 under {$sponsor->member_id}!");
         }
 
         // Condition 2: No user was logged in (brand new visitor), log in directly!
@@ -331,13 +411,14 @@ class AuthController extends Controller
                 'status' => true,
                 'is_already_logged_in' => false,
                 'is_existing' => false,
-                'message' => 'Registration successful! Your Member ID is ' . $memberId . '.',
+                'message' => 'Registration and Slot 1 Activation successful! Your Member ID is ' . $memberId . '.',
                 'member_id' => $memberId,
+                'tx_hash' => $verification['tx_hash'],
                 'redirect' => route('member.dashboard')
             ]);
         }
 
-        return redirect()->route('member.dashboard')->with('success', 'Registration successful! Your Member ID is ' . $memberId . '. Please activate Slot 1 ($15 USDT) to start receiving payments.');
+        return redirect()->route('member.dashboard')->with('success', 'Registration and Slot 1 Activation successful! Your Member ID is ' . $memberId . '.');
     }
 
     public function logout(Request $request)

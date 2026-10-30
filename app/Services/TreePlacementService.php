@@ -84,6 +84,33 @@ class TreePlacementService
     }
 
     /**
+     * Preview where the next placement would land under a sponsor in a given slot without modifying the DB
+     */
+    public function previewNextPlacement(User $sponsor, Slot $slot): array
+    {
+        $sponsorPos = SlotPosition::where('user_id', $sponsor->id)
+            ->where('slot_id', $slot->id)
+            ->first();
+
+        if (!$sponsorPos) {
+            $companyUser = User::where('member_id', 'COMPANY01')->first();
+            $sponsorPos = SlotPosition::where('user_id', $companyUser->id)
+                ->where('slot_id', $slot->id)
+                ->firstOrFail();
+        }
+
+        $targetParentPosId = $this->findNextWorkingTreeParentPositionId($sponsorPos->id);
+        $targetParentPos = SlotPosition::findOrFail($targetParentPosId);
+        $existingChildren = $targetParentPos->child_position_ids ?? [];
+        $legPosition = count($existingChildren) + 1;
+
+        return [
+            'parent_position' => $targetParentPos,
+            'leg_position' => $legPosition,
+        ];
+    }
+
+    /**
      * Breadth-First Search (BFS) to find first node with < 3 children under $rootPosId
      */
     private function findNextWorkingTreeParentPositionId(int $rootPosId): int

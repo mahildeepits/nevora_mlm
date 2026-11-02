@@ -123,15 +123,10 @@
                                     <small class="text-muted font-11">Email address cannot be changed.</small>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold font-13">Mobile / Phone Number <span class="text-danger">*</span></label>
-                                    <input type="tel" name="mobile" class="form-control @error('mobile') is-invalid @enderror" value="{{ old('mobile', $user->mobile) }}" placeholder="+1234567890" required>
-                                    @error('mobile')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                </div>
-                                <div class="col-md-6">
                                     <label class="form-label fw-bold font-13">Country</label>
                                     <input type="text" name="country" class="form-control" value="{{ old('country', $user->country) }}" placeholder="e.g. United States">
                                 </div>
-                                <div class="col-12">
+                                <div class="col-md-6">
                                     <label class="form-label fw-bold font-13">Residential Address</label>
                                     <input type="text" name="address" class="form-control" value="{{ old('address', $user->address) }}" placeholder="Street address">
                                 </div>

@@ -55,17 +55,13 @@ class UserController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:100',
-            'mobile' => 'required|string|max:20|unique:users,mobile,' . $user->id,
             'email' => 'required|email|max:255',
             'wallet_address' => 'nullable|string',
             'is_paid' => 'required|boolean',
-        ], [
-            'mobile.required' => 'Mobile number is required.',
-            'mobile.unique' => 'This mobile number is already registered to another account.',
         ]);
 
         $user->update($request->only([
-            'name', 'mobile', 'email', 'wallet_address', 'is_paid'
+            'name', 'email', 'wallet_address', 'is_paid'
         ]));
 
         return redirect()->route('admin.users.index')->with('success', 'User updated successfully.');

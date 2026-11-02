@@ -61,7 +61,7 @@
                             <tr>
                                 <th class="ps-4">#</th>
                                 <th>Member</th>
-                                <th>Contact</th>
+                                <th>Email</th>
                                 <th>Sponsor / Parent</th>
                                 <th>Slot</th>
                                 <th>Status</th>
@@ -85,7 +85,6 @@
                                     </td>
                                     <td>
                                         <div class="font-12">{{ $u->email }}</div>
-                                        <small class="text-muted font-11">{{ $u->mobile ?? '-' }}</small>
                                     </td>
                                     <td>
                                         <div class="font-11">Sponsor: <strong class="text-primary font-monospace">{{ $u->sponsor_id ?? '-' }}</strong></div>

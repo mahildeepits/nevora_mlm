@@ -33,20 +33,8 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label fw-bold font-13">Mobile / Phone <span class="text-danger">*</span></label>
-                            <input type="tel" name="mobile" class="form-control @error('mobile') is-invalid @enderror" value="{{ old('mobile', $user->mobile) }}" required>
-                            @error('mobile')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        </div>
-
-                        <div class="col-md-6">
                             <label class="form-label fw-bold font-13">Current Slot</label>
                             <input type="text" class="form-control bg-light" value="Slot {{ $user->current_slot_id }}" readonly disabled>
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label fw-bold font-13">BEP-20 Wallet Address (BSC)</label>
-                            <input type="text" name="wallet_address" class="form-control font-monospace @error('wallet_address') is-invalid @enderror" value="{{ old('wallet_address', $user->wallet_address) }}" placeholder="0x...">
-                            @error('wallet_address')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
 
                         <div class="col-md-6">
@@ -55,6 +43,12 @@
                                 <option value="1" {{ old('is_paid', $user->is_paid) ? 'selected' : '' }}>Paid / Active</option>
                                 <option value="0" {{ !old('is_paid', $user->is_paid) ? 'selected' : '' }}>Unpaid / Pending</option>
                             </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold font-13">BEP-20 Wallet Address (BSC)</label>
+                            <input type="text" name="wallet_address" class="form-control font-monospace @error('wallet_address') is-invalid @enderror" value="{{ old('wallet_address', $user->wallet_address) }}" placeholder="0x...">
+                            @error('wallet_address')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
 
                         <div class="col-12 mt-4 text-end">

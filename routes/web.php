@@ -16,7 +16,6 @@ Route::get('/presentation', function () {
 Route::controller(AuthController::class)->group(function () {
     Route::get('login', 'loginForm')->name('member.login.form');
     Route::post('login', 'login')->name('member.login');
-    Route::post('login-web3', 'loginWeb3')->name('member.login.web3');
     Route::get('register', 'registerForm')->name('member.register.form');
     Route::post('register', 'register')->name('member.register');
     Route::post('register-payee-preview', 'getRegistrationPayee')->name('member.register.payee_preview');

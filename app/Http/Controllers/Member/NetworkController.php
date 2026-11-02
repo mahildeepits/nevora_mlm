@@ -48,12 +48,9 @@ class NetworkController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
             'email' => 'required|email|max:255',
-            'mobile' => 'required|string|max:20|unique:users,mobile',
             'wallet_address' => 'nullable|regex:/^0x[a-fA-F0-9]{40}$/|unique:users,wallet_address',
             'password' => 'required|min:6|confirmed',
         ], [
-            'mobile.required' => 'Mobile number is required.',
-            'mobile.unique' => 'This mobile number is already registered to another account. Please use a unique phone number.',
             'wallet_address.regex' => 'Please enter a valid BSC (BEP-20) wallet address starting with 0x (42 characters).',
             'wallet_address.unique' => 'This wallet address is already linked to another account.',
         ]);
@@ -68,7 +65,6 @@ class NetworkController extends Controller
             'member_id' => $newMemberId,
             'name' => $request->name,
             'email' => $request->email,
-            'mobile' => $request->mobile,
             'wallet_address' => $request->wallet_address ? strtolower(trim($request->wallet_address)) : null,
             'password' => Hash::make($request->password),
             'sponsor_id' => $sponsor->member_id,

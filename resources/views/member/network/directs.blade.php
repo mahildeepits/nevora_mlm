@@ -61,7 +61,7 @@
                             <tr>
                                 <th class="ps-4">#</th>
                                 <th>Member</th>
-                                <th>Contact Details</th>
+                                <th>Email</th>
                                 <th>Joined Date</th>
                                 <th>Current Slot</th>
                                 <th>Status</th>
@@ -84,7 +84,6 @@
                                     </td>
                                     <td>
                                         <div class="font-12">{{ $direct->email }}</div>
-                                        <small class="text-muted font-11">{{ $direct->mobile ?? 'No phone' }}</small>
                                     </td>
                                     <td class="font-12 text-muted">{{ $direct->created_at->format('d M, Y') }}</td>
                                     <td>

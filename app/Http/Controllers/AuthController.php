@@ -131,7 +131,6 @@ class AuthController extends Controller
             'sponsor_id' => 'required',
             'name' => 'required|string|max:100',
             'email' => 'required|email|max:255',
-            'mobile' => 'required|string|max:20',
             'password' => 'required|min:6',
         ]);
 
@@ -144,7 +143,6 @@ class AuthController extends Controller
             'sponsor_id' => trim($request->sponsor_id),
             'name' => trim($request->name),
             'email' => trim($request->email),
-            'mobile' => trim($request->mobile),
             'password' => $request->password,
         ];
 
@@ -185,44 +183,6 @@ class AuthController extends Controller
             'status' => true,
             'sponsor_name' => $sponsor->name,
             'sponsor_id' => $sponsor->member_id,
-        ]);
-    }
-
-    /**
-     * 1-Click Web3 Login (SafePal / Trust Wallet / MetaMask / etc.)
-     */
-    public function loginWeb3(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'wallet_address' => [
-                'required',
-                'regex:/^0x[a-fA-F0-9]{40}$/',
-            ],
-        ], [
-            'wallet_address.required' => 'Please connect a valid Web3 wallet.',
-            'wallet_address.regex' => 'Invalid BEP-20 wallet address format.',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
-        }
-
-        $address = strtolower(trim($request->wallet_address));
-        $user = User::where('wallet_address', $address)->first();
-
-        if (!$user) {
-            return response()->json([
-                'status' => false,
-                'message' => 'No NEVORA account is registered with this wallet address. Please register first.'
-            ], 404);
-        }
-
-        Auth::guard('web')->login($user);
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Welcome back, ' . $user->name . '!',
-            'redirect' => route('member.dashboard')
         ]);
     }
 
@@ -268,7 +228,6 @@ class AuthController extends Controller
             'sponsor_id' => 'required|exists:users,member_id',
             'name' => 'required|string|max:100',
             'email' => 'required|email|max:255',
-            'mobile' => 'required|string|max:20|unique:users,mobile',
             'password' => 'required|min:6|confirmed',
             'wallet_address' => [
                 'required',
@@ -276,8 +235,6 @@ class AuthController extends Controller
             ],
             'tx_hash' => 'required|string',
         ], [
-            'mobile.required' => 'Mobile number is required.',
-            'mobile.unique' => 'This mobile number is already registered to another account. Please use a unique phone number.',
             'wallet_address.required' => 'Please connect your SafePal or Web3 wallet to complete registration.',
             'wallet_address.regex' => 'Please connect a valid BSC (BEP-20) wallet address starting with 0x (42 characters).',
             'tx_hash.required' => 'Payment authorization required. Please approve the $15 USDT transfer in your wallet.',
@@ -352,7 +309,6 @@ class AuthController extends Controller
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
-                'mobile' => $request->mobile,
                 'sponsor_id' => $sponsor->member_id,
                 'role_id' => 2,
                 'is_paid' => true, // 100% PAID UPON REGISTRATION!

@@ -93,10 +93,6 @@
                                     <td style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; font-weight: 600;">{{ $user->email }}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b; font-weight: 600;">Mobile Number:</td>
-                                    <td style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; font-weight: 600;">{{ $user->mobile ?? 'N/A' }}</td>
-                                </tr>
-                                <tr>
                                     <td style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b; font-weight: 600;">Sponsor Member ID:</td>
                                     <td style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2563eb; font-weight: 700; font-family: monospace;">{{ $user->sponsor_id ?? 'COMPANY01' }}</td>
                                 </tr>

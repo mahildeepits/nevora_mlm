@@ -223,18 +223,8 @@
                                     @error('name')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
                                 </div>
 
-                                {{-- Mobile --}}
-                                <div class="col-md-6">
-                                    <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Mobile Number <span class="text-danger">*</span></label>
-                                    <div class="custom-input-group @error('mobile') has-error @enderror">
-                                        <span class="input-icon"><i class="fa-solid fa-phone"></i></span>
-                                        <input type="tel" name="mobile" id="mobile_input" class="form-control" placeholder="+1234567890" value="{{ old('mobile', $stashed['mobile'] ?? '') }}" required>
-                                    </div>
-                                    @error('mobile')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
-                                </div>
-
                                 {{-- Email Address (No OTP!) --}}
-                                <div class="col-12">
+                                <div class="col-md-6">
                                     <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1">Email Address <span class="text-danger">*</span></label>
                                     <div class="custom-input-group @error('email') has-error @enderror">
                                         <span class="input-icon"><i class="fa-solid fa-envelope"></i></span>
@@ -351,7 +341,6 @@
             function validateForm() {
                 const sponsor = sponsorInput.value.trim();
                 const name = document.getElementById('name_input').value.trim();
-                const mobile = document.getElementById('mobile_input').value.trim();
                 const email = document.getElementById('email_input').value.trim();
                 const pass = document.getElementById('password_input').value;
                 const passConfirm = document.getElementById('password_confirmation_input').value;
@@ -364,11 +353,6 @@
                 if (!name) {
                     toastr.warning('Please enter your full name.');
                     document.getElementById('name_input').focus();
-                    return false;
-                }
-                if (!mobile) {
-                    toastr.warning('Please enter your mobile number.');
-                    document.getElementById('mobile_input').focus();
                     return false;
                 }
                 if (!email || !email.includes('@')) {
@@ -528,7 +512,6 @@
                 const formInputs = {
                     sponsor_id: sponsorInput.value.trim(),
                     name: document.getElementById('name_input').value.trim(),
-                    mobile: document.getElementById('mobile_input').value.trim(),
                     email: document.getElementById('email_input').value.trim(),
                     password: document.getElementById('password_input').value,
                     password_confirmation: document.getElementById('password_confirmation_input').value

@@ -249,6 +249,10 @@
                                         </div>
                                     </div>
 
+                                    <div id="wallet-connect-error" class="text-danger font-11 mt-1.5 d-none fw-semibold">
+                                        <i class="fa-solid fa-circle-exclamation me-1"></i> Please connect your SafePal or Web3 wallet before submitting the registration form.
+                                    </div>
+
                                     @error('wallet_address')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
                                 </div>
 
@@ -394,29 +398,63 @@
                 }, 400);
             });
 
-            // Validate Form Inputs before opening Web3 Modal
+            function showWalletConnectError() {
+                const errorEl = document.getElementById('wallet-connect-error');
+                const idleBoxInner = document.querySelector('#wallet-connect-idle > div');
+                if (errorEl) errorEl.classList.remove('d-none');
+                if (idleBoxInner) {
+                    idleBoxInner.style.setProperty('border', '1.5px dashed #dc2626', 'important');
+                    idleBoxInner.style.backgroundColor = 'rgba(220, 38, 38, 0.05)';
+                }
+                document.getElementById('wallet-connect-idle')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            function clearWalletConnectError() {
+                const errorEl = document.getElementById('wallet-connect-error');
+                const idleBoxInner = document.querySelector('#wallet-connect-idle > div');
+                if (errorEl) errorEl.classList.add('d-none');
+                if (idleBoxInner) {
+                    idleBoxInner.style.setProperty('border', '1.5px dashed #3b82f6', 'important');
+                    idleBoxInner.style.backgroundColor = 'rgba(59, 130, 246, 0.04)';
+                }
+            }
+
+            // Validate Form Inputs before submitting
             function validateForm() {
+                const currentWallet = walletInput.value.trim() || NevoraWeb3.getState().connectedAddress;
                 const sponsor = sponsorInput.value.trim();
                 const name = document.getElementById('name_input').value.trim();
                 const email = document.getElementById('email_input').value.trim();
                 const pass = document.getElementById('password_input').value;
                 const passConfirm = document.getElementById('password_confirmation_input').value;
 
+                // 1. Mandatory Step: Web3 Wallet MUST be connected first before registration
+                if (!currentWallet) {
+                    toastr.warning('Please connect your Web3 wallet first before submitting the form.');
+                    showWalletConnectError();
+                    return false;
+                }
+                clearWalletConnectError();
+
+                // 2. Sponsor ID
                 if (!sponsor) {
                     toastr.warning('Please enter a valid Sponsor Member ID.');
                     sponsorInput.focus();
                     return false;
                 }
+                // 3. Name
                 if (!name) {
                     toastr.warning('Please enter your full name.');
                     document.getElementById('name_input').focus();
                     return false;
                 }
+                // 4. Email
                 if (!email || !email.includes('@')) {
                     toastr.warning('Please enter a valid email address.');
                     document.getElementById('email_input').focus();
                     return false;
                 }
+                // 5. Password
                 if (!pass || pass.length < 6) {
                     toastr.warning('Password must be at least 6 characters.');
                     document.getElementById('password_input').focus();
@@ -460,6 +498,7 @@
                                 const res = await NevoraWeb3.connectByPlatform(walletId);
                                 if (res && res.address) {
                                     Swal.close();
+                                    clearWalletConnectError();
                                     NevoraWeb3.updateRegistrationTopBar(res.address, wallet.name, wallet.iconSvg);
                                     toastr.success(`${wallet.name} connected successfully!`);
                                 }
@@ -489,6 +528,7 @@
             if (btnTopDisconnect) {
                 btnTopDisconnect.addEventListener('click', async function () {
                     await NevoraWeb3.disconnectRegistrationWallet();
+                    clearWalletConnectError();
                     toastr.info('Wallet disconnected. Click Connect Wallet to switch accounts.');
                 });
             }
@@ -496,62 +536,8 @@
             // Click Handler: Triggers Atomic Pay-to-Register Flow
             if (btnSubmitPay) {
                 btnSubmitPay.addEventListener('click', async function () {
+                    // Strict validation: Web3 wallet MUST be connected before form submission
                     if (!validateForm()) return;
-
-                    const currentWallet = walletInput.value.trim() || NevoraWeb3.getState().connectedAddress;
-
-                    // If user has not connected wallet yet, prompt the B-TITAN wallet drawer
-                    if (!currentWallet) {
-                        toastr.warning('Please connect your SafePal or Web3 wallet at the top of the form.');
-                        document.getElementById('wallet-connect-idle')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                        NevoraWeb3.showWalletModal({
-                            title: 'Connect Web3 Wallet to Register',
-                            subtitle: 'Choose your wallet to link your account and authorize $15.00 USDT',
-                            onSelect: async (walletId, wallet) => {
-                                Swal.fire({
-                                    title: `Connecting to ${wallet.name}...`,
-                                    html: `
-                                        <div class="my-3 text-center">
-                                            <div class="spinner-border text-primary" role="status" style="width: 2.8rem; height: 2.8rem;"></div>
-                                        </div>
-                                        <p class="font-13 text-muted mb-2">Please approve the connection in <strong>${wallet.name}</strong>.</p>
-                                        <small class="text-muted font-11"><i class="fa-solid fa-fingerprint me-1"></i> Check your wallet extension or mobile app to approve</small>
-                                    `,
-                                    allowOutsideClick: false,
-                                    showConfirmButton: false,
-                                    showCancelButton: true,
-                                    cancelButtonText: 'Cancel'
-                                });
-
-                                try {
-                                    const res = await NevoraWeb3.connectByPlatform(walletId);
-                                    if (res && res.address) {
-                                        Swal.close();
-                                        NevoraWeb3.updateRegistrationTopBar(res.address, wallet.name, wallet.iconSvg);
-                                        toastr.success(`${wallet.name} connected! Click Pay to complete registration.`);
-                                    }
-                                } catch (e) {
-                                    if (e.code === 4001 || e.code === 'ACTION_REJECTED' || e.message?.includes('rejected') || e.message?.includes('denied')) {
-                                        Swal.fire({
-                                            icon: 'info',
-                                            title: 'Connection Cancelled',
-                                            text: `You cancelled the connection request in ${wallet.name}.`,
-                                            confirmButtonText: 'OK'
-                                        });
-                                    } else {
-                                        Swal.fire({
-                                            icon: 'error',
-                                            title: 'Connection Failed',
-                                            text: e.message || `Could not connect to ${wallet.name}.`,
-                                            confirmButtonText: 'Try Again'
-                                        });
-                                    }
-                                }
-                            }
-                        });
-                        return;
-                    }
 
                     const formInputs = {
                         sponsor_id: sponsorInput.value.trim(),

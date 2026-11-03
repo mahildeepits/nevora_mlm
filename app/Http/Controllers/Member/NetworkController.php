@@ -45,39 +45,9 @@ class NetworkController extends Controller
             return back()->with('error', 'Only active/paid members are eligible to sponsor downline members.');
         }
 
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:100',
-            'email' => 'required|email|max:255',
-            'wallet_address' => 'nullable|regex:/^0x[a-fA-F0-9]{40}$/|unique:users,wallet_address',
-            'password' => 'required|min:6|confirmed',
-        ], [
-            'wallet_address.regex' => 'Please enter a valid BSC (BEP-20) wallet address starting with 0x (42 characters).',
-            'wallet_address.unique' => 'This wallet address is already linked to another account.',
-        ]);
-
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
-        }
-
-        $newMemberId = generateMemberId();
-
-        $newUser = User::create([
-            'member_id' => $newMemberId,
-            'name' => $request->name,
-            'email' => $request->email,
-            'wallet_address' => $request->wallet_address ? strtolower(trim($request->wallet_address)) : null,
-            'password' => Hash::make($request->password),
-            'sponsor_id' => $sponsor->member_id,
-            'role_id' => 2,
-            'is_paid' => false,
-            'current_slot_id' => 1,
-        ]);
-
-        // Place into Slot 1 working 3-matrix tree under sponsor
-        $this->treePlacementService->placeInWorkingTree($newUser, $sponsor);
-
-        return redirect()->route('member.network.tree', ['memberId' => $newUser->member_id])
-            ->with('success', "New member {$newUser->name} ({$newUser->member_id}) registered and placed into your 3-matrix tree!");
+        // Direct user to official atomic registration flow with sponsor ID locked
+        return redirect()->route('member.register.form', ['sponsor' => $sponsor->member_id])
+            ->with('info', 'Please complete downline registration by connecting the Web3 wallet and authorizing the $15 USDT activation fee.');
     }
     /**
      * Module 1: Interactive 3-Matrix Tree Viewer

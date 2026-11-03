@@ -47,18 +47,11 @@ class DashboardController extends Controller
         $currentSlot = Slot::where('slot_number', $user->current_slot_id)->first() ?? $allSlots->first();
         $currentPosition = $userPositions->get($currentSlot->slot_number);
 
-        // Self-heal: ensure unpaid member has a valid slot position
-        if (!$currentPosition && !$user->is_paid) {
-            $sponsor = $user->sponsor ?? User::where('member_id', 'COMPANY01')->first();
-            if ($sponsor) {
-                $currentPosition = $this->treePlacementService->placeInWorkingTree($user, $sponsor);
-                $userPositions->put($currentSlot->slot_number, $currentPosition);
-            }
-        }
-
-        // Calculate assigned payee for activation (if unpaid in current slot or ready for next)
+        // Calculate assigned payee for activation (if unpaid, use dynamic compression preview)
         $assignedPayee = null;
-        if ($currentPosition && !$user->is_paid) {
+        if (!$user->is_paid) {
+            $assignedPayee = $this->paymentRouteService->resolvePayeeForNewRegistration($user->sponsor_id ?? 'COMPANY01', 1);
+        } elseif ($currentPosition) {
             $assignedPayee = $this->paymentRouteService->resolvePayee($currentPosition, $currentSlot);
         }
 

@@ -12,6 +12,7 @@ class P2PBlockchainService
     protected ?string $apiKey;
     protected string $apiUrl;
     protected string $rpcUrl;
+    protected array $rpcEndpoints;
 
     public function __construct()
     {
@@ -19,6 +20,13 @@ class P2PBlockchainService
         $this->apiKey = env('BSCSCAN_API_KEY');
         $this->apiUrl = env('BSCSCAN_API_URL', 'https://api.bscscan.com/api');
         $this->rpcUrl = env('BSC_RPC_URL', 'https://bsc-dataseed.binance.org');
+        $this->rpcEndpoints = array_values(array_unique([
+            $this->rpcUrl,
+            'https://bsc-dataseed1.defibit.io',
+            'https://bsc-dataseed1.ninicoin.io',
+            'https://binance.llamarpc.com',
+            'https://bsc.blockpi.network/v1/rpc/public',
+        ]));
     }
 
     /**
@@ -124,72 +132,78 @@ class P2PBlockchainService
     }
 
     /**
-     * Query BSC JSON-RPC directly to inspect transaction receipt and token transfer event
+     * Query BSC JSON-RPC with multi-endpoint failover and retry loop to handle block propagation latency
      */
     protected function verifyViaRpc(string $txHash, string $payer, string $payee, float $expectedAmount): array
     {
-        try {
-            $response = Http::timeout(8)->post($this->rpcUrl, [
-                'jsonrpc' => '2.0',
-                'method' => 'eth_getTransactionReceipt',
-                'params' => [$txHash],
-                'id' => 1,
-            ]);
+        $transferEventSig = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+        $maxAttempts = 3;
 
-            if (!$response->successful()) {
-                return ['status' => false, 'message' => 'Could not connect to BSC RPC node.'];
-            }
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            foreach ($this->rpcEndpoints as $rpc) {
+                try {
+                    $response = Http::timeout(6)->post($rpc, [
+                        'jsonrpc' => '2.0',
+                        'method' => 'eth_getTransactionReceipt',
+                        'params' => [$txHash],
+                        'id' => 1,
+                    ]);
 
-            $json = $response->json();
-            $receipt = $json['result'] ?? null;
-
-            if (!$receipt) {
-                return ['status' => false, 'message' => 'Transaction not found or still pending in mempool.'];
-            }
-
-            // Check execution status: '0x1' is success
-            if (($receipt['status'] ?? '') !== '0x1') {
-                return ['status' => false, 'message' => 'Transaction failed or was reverted on BSC.'];
-            }
-
-            // ERC20/BEP20 Transfer(address,address,uint256) signature hash
-            $transferEventSig = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-            $logs = $receipt['logs'] ?? [];
-
-            foreach ($logs as $log) {
-                $contract = strtolower($log['address'] ?? '');
-                $topics = $log['topics'] ?? [];
-
-                // Check if this log is a Transfer event
-                if (strtolower($topics[0] ?? '') === $transferEventSig && count($topics) >= 3) {
-                    $logFrom = strtolower('0x' . substr($topics[1], 26));
-                    $logTo = strtolower('0x' . substr($topics[2], 26));
-
-                    // Decode hex value (BEP-20 USDT has 18 decimals)
-                    $hexVal = ltrim($log['data'] ?? '0x0', '0x');
-                    $rawDec = $this->bchexdec($hexVal ?: '0');
-                    $actualAmount = (float) bcdiv($rawDec, '1000000000000000000', 4);
-
-                    // Validate: contract, sender, receiver, and amount
-                    if (
-                        $contract === $this->contractAddress &&
-                        $logFrom === $payer &&
-                        $logTo === $payee &&
-                        abs($actualAmount - $expectedAmount) < 0.05
-                    ) {
-                        return [
-                            'status' => true,
-                            'tx_hash' => $txHash,
-                            'from' => $logFrom,
-                            'to' => $logTo,
-                            'amount' => $actualAmount,
-                            'block_number' => isset($receipt['blockNumber']) ? hexdec($receipt['blockNumber']) : null,
-                        ];
+                    if (!$response->successful()) {
+                        continue;
                     }
+
+                    $json = $response->json();
+                    $receipt = $json['result'] ?? null;
+
+                    if (!$receipt) {
+                        continue;
+                    }
+
+                    // Check execution status: '0x1' is success
+                    if (($receipt['status'] ?? '') !== '0x1') {
+                        return ['status' => false, 'message' => 'Transaction failed or was reverted on BSC.'];
+                    }
+
+                    $logs = $receipt['logs'] ?? [];
+                    foreach ($logs as $log) {
+                        $contract = strtolower($log['address'] ?? '');
+                        $topics = $log['topics'] ?? [];
+
+                        if (strtolower($topics[0] ?? '') === $transferEventSig && count($topics) >= 3) {
+                            $logFrom = strtolower('0x' . substr($topics[1], 26));
+                            $logTo = strtolower('0x' . substr($topics[2], 26));
+
+                            $hexVal = ltrim($log['data'] ?? '0x0', '0x');
+                            $rawDec = $this->bchexdec($hexVal ?: '0');
+                            $actualAmount = (float) bcdiv($rawDec, '1000000000000000000', 4);
+
+                            if (
+                                $contract === $this->contractAddress &&
+                                $logFrom === $payer &&
+                                $logTo === $payee &&
+                                abs($actualAmount - $expectedAmount) < 0.05
+                            ) {
+                                return [
+                                    'status' => true,
+                                    'tx_hash' => $txHash,
+                                    'from' => $logFrom,
+                                    'to' => $logTo,
+                                    'amount' => $actualAmount,
+                                    'block_number' => isset($receipt['blockNumber']) ? hexdec($receipt['blockNumber']) : null,
+                                ];
+                            }
+                        }
+                    }
+                } catch (\Throwable $th) {
+                    Log::warning("BSC RPC attempt notice for {$rpc}: " . $th->getMessage());
                 }
             }
-        } catch (\Throwable $th) {
-            Log::error("BSC RPC verification error for tx {$txHash}: " . $th->getMessage());
+
+            // Sleep 1.2 seconds between retry attempts to allow block propagation
+            if ($attempt < $maxAttempts) {
+                usleep(1200000);
+            }
         }
 
         return ['status' => false, 'message' => 'Transaction verification via RPC did not match expected amount or payee.'];

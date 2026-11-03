@@ -153,6 +153,14 @@
                                             <span class="badge bg-danger-subtle text-danger px-3 py-1 rounded-pill font-11">
                                                 <i class="fa-solid fa-building-columns me-1"></i> Deduction
                                             </span>
+                                        @elseif($tx->category === 'Activation Payment')
+                                            <span class="badge bg-primary-subtle text-primary px-3 py-1 rounded-pill font-11">
+                                                <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Activation Payment
+                                            </span>
+                                        @elseif($tx->category === 'Recycle Payment')
+                                            <span class="badge bg-info-subtle text-info px-3 py-1 rounded-pill font-11">
+                                                <i class="fa-solid fa-arrows-rotate me-1"></i> Recycle Payment
+                                            </span>
                                         @else
                                             <span class="badge bg-secondary-subtle text-secondary px-3 py-1 rounded-pill font-11">
                                                 {{ $tx->category }}
@@ -164,17 +172,23 @@
                                         <span class="badge bg-soft-primary text-primary font-11">Slot {{ $tx->slot_number }}</span>
                                     </td>
                                     <td>
-                                        <div class="fw-bold font-14 {{ in_array($tx->category, ['Slot Income', 'Recycle Income']) ? 'text-success' : 'text-dark' }}">
-                                            {{ in_array($tx->category, ['Slot Income', 'Recycle Income']) ? '+' : '' }}{{ formatPrice($tx->amount) }}
+                                        <div class="fw-bold font-14 {{ in_array($tx->category, ['Slot Income', 'Recycle Income']) ? 'text-success' : ($tx->transaction_type === 'Debit' ? 'text-danger' : 'text-dark') }}">
+                                            {{ in_array($tx->category, ['Slot Income', 'Recycle Income']) ? '+' : ($tx->transaction_type === 'Debit' ? '-' : '') }}{{ formatPrice($tx->amount) }}
                                         </div>
                                     </td>
                                     <td>
-                                        @if($tx->from_user_id)
+                                        @if($tx->transaction_type === 'Debit')
+                                            <div class="font-12">To: <span class="fw-bold text-dark font-monospace">{{ $tx->to_address ? maskAddress($tx->to_address) : '-' }}</span></div>
+                                        @elseif($tx->from_user_id)
                                             <div class="font-12">From: <span class="fw-bold text-primary">{{ $tx->fromUser?->member_id ?? 'User #' . $tx->from_user_id }}</span></div>
+                                            <small class="text-muted font-11 font-monospace">
+                                                {{ $tx->from_address ? maskAddress($tx->from_address) : '-' }}
+                                            </small>
+                                        @else
+                                            <small class="text-muted font-11 font-monospace">
+                                                {{ $tx->to_address ? maskAddress($tx->to_address) : '-' }}
+                                            </small>
                                         @endif
-                                        <small class="text-muted font-11 font-monospace">
-                                            {{ $tx->to_address ? maskAddress($tx->to_address) : '-' }}
-                                        </small>
                                     </td>
                                     <td>
                                         @if($tx->tx_hash)

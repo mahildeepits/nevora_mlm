@@ -55,7 +55,23 @@ class MatrixIncomeService
             }
             $targetPos->save();
 
-            // 4. Log in Unified Transactions
+            // 4a. Log Debit Transaction for Payer (Activation Payment)
+            UnifiedTransaction::create([
+                'user_id' => $payer->id,
+                'from_user_id' => $payer->id,
+                'slot_id' => $slot->id,
+                'slot_number' => $slot->slot_number,
+                'amount' => $amount,
+                'transaction_type' => 'Debit',
+                'category' => 'Activation Payment',
+                'status' => 'Completed',
+                'tx_hash' => $txHash,
+                'from_address' => $payer->wallet_address,
+                'to_address' => $routing['wallet_address'],
+                'description' => "Slot {$slot->slot_number} ({$slot->name}) Activation Payment to Member {$payeeUser->member_id}",
+            ]);
+
+            // 4b. Log Credit Transaction for Payee
             UnifiedTransaction::create([
                 'user_id' => $payeeUser->id,
                 'from_user_id' => $payer->id,
@@ -126,6 +142,23 @@ class MatrixIncomeService
             }
             $targetPos->save();
 
+            // Debit for Payer (Recycle Payment)
+            UnifiedTransaction::create([
+                'user_id' => $payer->id,
+                'from_user_id' => $payer->id,
+                'slot_id' => $slot->id,
+                'slot_number' => $slot->slot_number,
+                'amount' => $amount,
+                'transaction_type' => 'Debit',
+                'category' => 'Recycle Payment',
+                'status' => 'Completed',
+                'tx_hash' => $txHash,
+                'from_address' => $payer->wallet_address,
+                'to_address' => $routing['wallet_address'],
+                'description' => "Recycle Entry Payment (Slot {$slot->slot_number}) to Member {$payeeUser->member_id}",
+            ]);
+
+            // Credit for Payee
             UnifiedTransaction::create([
                 'user_id' => $payeeUser->id,
                 'from_user_id' => $payer->id,

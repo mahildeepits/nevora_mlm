@@ -259,20 +259,10 @@ class AuthController extends Controller
         $walletAddress = strtolower(trim($request->wallet_address));
         $existingWallet = User::where('wallet_address', $walletAddress)->first();
         if ($existingWallet) {
-            if (!$alreadyLoggedIn) {
-                // If not logged in, log into existing user
-                Auth::guard('web')->login($existingWallet);
-                $msg = 'This wallet is already registered. Logging you in...';
-                return ($request->expectsJson() || $request->ajax())
-                    ? response()->json(['status' => true, 'is_existing' => true, 'message' => $msg, 'redirect' => route('member.dashboard')])
-                    : redirect()->route('member.dashboard')->with('info', $msg);
-            } else {
-                // If already logged in, notify that wallet belongs to another account
-                $msg = 'This wallet address is already linked to another member (' . $existingWallet->member_id . '). Please connect a unique wallet.';
-                return ($request->expectsJson() || $request->ajax())
-                    ? response()->json(['status' => false, 'message' => $msg], 422)
-                    : back()->withErrors(['wallet_address' => $msg])->withInput();
-            }
+            $msg = 'This wallet address is already linked to member ID ' . $existingWallet->member_id . '. Each NEVORA account requires a unique Web3 wallet. Please connect a different wallet or sign in.';
+            return ($request->expectsJson() || $request->ajax())
+                ? response()->json(['status' => false, 'message' => $msg], 422)
+                : back()->withErrors(['wallet_address' => $msg])->withInput();
         }
 
         // Rule: Only active (is_paid = 1) users can sponsor!

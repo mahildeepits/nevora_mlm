@@ -25,11 +25,11 @@
                     <div class="d-flex align-items-center gap-2">
                         @if($targetUser->id !== $loggedInUser->id)
                             @if($parentUser)
-                                <a href="{{ route('member.network.tree', ['memberId' => $parentUser->member_id]) }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                                <a href="{{ route('member.network.tree', ['memberId' => $parentUser->member_id]) }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-semibold">
                                     <i class="fa-solid fa-arrow-up me-1"></i> Up One Level
                                 </a>
                             @endif
-                            <a href="{{ route('member.network.tree') }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                            <a href="{{ route('member.network.tree') }}" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-semibold">
                                 <i class="fa-solid fa-house-user me-1"></i> Back to My Root
                             </a>
                         @endif

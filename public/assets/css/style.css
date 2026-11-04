@@ -279,6 +279,60 @@ body {
 /* ============================================================
    RESPONSIVE SIDEBAR & MAIN CONTENT LAYOUT
    ============================================================ */
+aside.sidebar,
+.sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+}
+
+aside.sidebar .sidebar-header,
+.sidebar .sidebar-header {
+    flex-shrink: 0 !important;
+}
+
+aside.sidebar .sidebar-body,
+.sidebar .sidebar-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: calc(100dvh - 65px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+/* Custom sleek 5px scrollbar for Webkit */
+.sidebar .sidebar-body::-webkit-scrollbar {
+    width: 5px;
+}
+.sidebar .sidebar-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.sidebar .sidebar-body::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 10px;
+}
+.sidebar .sidebar-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.6);
+}
+[data-bs-theme="dark"] .sidebar .sidebar-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+}
+[data-bs-theme="dark"] .sidebar .sidebar-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Bottom clearance so the lowest items (Profile, Logout) are never obscured */
+.sidebar .sidebar-list {
+    padding-bottom: 3rem !important;
+}
+
 @media (min-width: 1200px) {
     .sidebar {
         width: 16.2rem !important;
@@ -317,6 +371,10 @@ body {
         top: 0 !important;
         left: 0 !important;
         height: 100vh !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        display: flex !important;
+        flex-direction: column !important;
         z-index: 1060 !important;
         width: 280px !important;
         background-color: #ffffff !important;

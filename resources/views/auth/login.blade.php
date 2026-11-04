@@ -214,7 +214,7 @@
                                 <div class="custom-input-group @error('password') has-error @enderror">
                                     <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
                                     <input type="password" name="password" id="password" class="form-control" placeholder="Enter your password" required>
-                                    <button class="btn-eye-toggle" type="button" onclick="togglePasswordVisibility('password')" tabindex="-1">
+                                    <button class="btn-eye-toggle" type="button" onclick="togglePasswordVisibility('password', 'password-eye')" tabindex="-1" aria-label="Toggle password visibility">
                                         <i class="fa-solid fa-eye" id="password-eye"></i>
                                     </button>
                                 </div>

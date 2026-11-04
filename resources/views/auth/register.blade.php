@@ -105,6 +105,22 @@
             box-shadow: none !important;
             outline: none !important;
         }
+        .custom-input-group .btn-eye-toggle {
+            background: transparent;
+            border: none;
+            padding: 0 16px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            outline: none;
+            box-shadow: none;
+            transition: color 0.2s ease;
+        }
+        .custom-input-group .btn-eye-toggle:hover {
+            color: #0f172a;
+        }
 
         /* Dark mode inputs */
         [data-bs-theme="dark"] .custom-input-group {
@@ -118,8 +134,12 @@
         [data-bs-theme="dark"] .custom-input-group .form-control {
             color: #f8fafc;
         }
-        [data-bs-theme="dark"] .custom-input-group .input-icon {
+        [data-bs-theme="dark"] .custom-input-group .input-icon,
+        [data-bs-theme="dark"] .custom-input-group .btn-eye-toggle {
             color: #94a3b8;
+        }
+        [data-bs-theme="dark"] .custom-input-group .btn-eye-toggle:hover {
+            color: #f8fafc;
         }
 
         .btn-auth-submit {
@@ -302,6 +322,9 @@
                                     <div class="custom-input-group @error('password') has-error @enderror">
                                         <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
                                         <input type="password" name="password" id="password_input" class="form-control" placeholder="Min 6 characters" value="{{ $stashed['password'] ?? '' }}" required>
+                                        <button class="btn-eye-toggle" type="button" onclick="togglePasswordVisibility('password_input', 'password_eye')" tabindex="-1" aria-label="Toggle password visibility">
+                                            <i class="fa-solid fa-eye" id="password_eye"></i>
+                                        </button>
                                     </div>
                                     @error('password')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
                                 </div>
@@ -312,6 +335,9 @@
                                     <div class="custom-input-group">
                                         <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
                                         <input type="password" name="password_confirmation" id="password_confirmation_input" class="form-control" placeholder="Re-enter password" value="{{ $stashed['password'] ?? '' }}" required>
+                                        <button class="btn-eye-toggle" type="button" onclick="togglePasswordVisibility('password_confirmation_input', 'password_confirmation_eye')" tabindex="-1" aria-label="Toggle confirm password visibility">
+                                            <i class="fa-solid fa-eye" id="password_confirmation_eye"></i>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -551,6 +577,21 @@
                 });
             }
         });
+
+        function togglePasswordVisibility(inputId, eyeId) {
+            const input = document.getElementById(inputId);
+            const eye = document.getElementById(eyeId || (inputId + '-eye'));
+            if (!input || !eye) return;
+            if (input.type === 'password') {
+                input.type = 'text';
+                eye.classList.remove('fa-eye');
+                eye.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                eye.classList.remove('fa-eye-slash');
+                eye.classList.add('fa-eye');
+            }
+        }
     </script>
 </body>
 </html>

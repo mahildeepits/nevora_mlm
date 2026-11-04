@@ -1,66 +1,90 @@
 @extends('layouts.admin')
 
 @section('content')
+<style>
+    .card-kpi-link {
+        display: block;
+        color: inherit;
+        text-decoration: none !important;
+    }
+    .card-kpi-clickable {
+        cursor: pointer;
+        transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card-kpi-clickable:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08) !important;
+    }
+</style>
+
 <div class="row">
     <div class="col-12 mb-3">
         <x-alerts />
     </div>
 
-    {{-- Platform Overview KPIs --}}
+    {{-- Platform Overview KPIs (Interactive Clickable Cards) --}}
     <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card border-0 shadow-sm rounded-4 h-100">
-            <div class="card-body p-4 d-flex align-items-center gap-3">
-                <div class="bg-primary bg-opacity-10 text-primary rounded-4 p-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
-                    <i class="fa-solid fa-users font-24"></i>
-                </div>
-                <div>
-                    <h6 class="text-muted small fw-bold text-uppercase mb-1">Total Members</h6>
-                    <h3 class="fw-bold mb-0 text-dark">{{ number_format($totalMembers) }}</h3>
+        <a href="{{ route('admin.users.index') }}" class="card-kpi-link" title="View All Members">
+            <div class="card border-0 shadow-sm rounded-4 h-100 card-kpi-clickable">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="bg-primary bg-opacity-10 text-primary rounded-4 p-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                        <i class="fa-solid fa-users font-24"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small fw-bold text-uppercase mb-1">Total Members</h6>
+                        <h3 class="fw-bold mb-0 text-dark">{{ number_format($totalMembers) }}</h3>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card border-0 shadow-sm rounded-4 h-100">
-            <div class="card-body p-4 d-flex align-items-center gap-3">
-                <div class="bg-success bg-opacity-10 text-success rounded-4 p-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
-                    <i class="fa-solid fa-user-check font-24"></i>
-                </div>
-                <div>
-                    <h6 class="text-muted small fw-bold text-uppercase mb-1">Active / Paid</h6>
-                    <h3 class="fw-bold mb-0 text-success">{{ number_format($paidMembers) }}</h3>
+        <a href="{{ route('admin.users.index', ['status' => 'paid']) }}" class="card-kpi-link" title="View Active & Paid Members">
+            <div class="card border-0 shadow-sm rounded-4 h-100 card-kpi-clickable">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="bg-success bg-opacity-10 text-success rounded-4 p-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                        <i class="fa-solid fa-user-check font-24"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small fw-bold text-uppercase mb-1">Active / Paid</h6>
+                        <h3 class="fw-bold mb-0 text-success">{{ number_format($paidMembers) }}</h3>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card border-0 shadow-sm rounded-4 h-100">
-            <div class="card-body p-4 d-flex align-items-center gap-3">
-                <div class="bg-warning bg-opacity-10 text-warning rounded-4 p-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
-                    <i class="fa-solid fa-user-clock font-24"></i>
-                </div>
-                <div>
-                    <h6 class="text-muted small fw-bold text-uppercase mb-1">Unpaid Members</h6>
-                    <h3 class="fw-bold mb-0 text-warning">{{ number_format($unpaidMembers) }}</h3>
+        <a href="{{ route('admin.users.index', ['status' => 'unpaid']) }}" class="card-kpi-link" title="View Unpaid / Pending Members">
+            <div class="card border-0 shadow-sm rounded-4 h-100 card-kpi-clickable">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="bg-warning bg-opacity-10 text-warning rounded-4 p-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                        <i class="fa-solid fa-user-clock font-24"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small fw-bold text-uppercase mb-1">Unpaid Members</h6>
+                        <h3 class="fw-bold mb-0 text-warning">{{ number_format($unpaidMembers) }}</h3>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card border-0 shadow-sm rounded-4 h-100">
-            <div class="card-body p-4 d-flex align-items-center gap-3">
-                <div class="bg-info bg-opacity-10 text-info rounded-4 p-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
-                    <i class="fa-solid fa-vault font-24"></i>
-                </div>
-                <div>
-                    <h6 class="text-muted small fw-bold text-uppercase mb-1">Platform Turnover</h6>
-                    <h3 class="fw-bold mb-0 text-info">{{ formatPrice($totalTurnover) }}</h3>
+        <a href="{{ route('admin.transactions.index') }}" class="card-kpi-link" title="View Unified Platform Ledger">
+            <div class="card border-0 shadow-sm rounded-4 h-100 card-kpi-clickable">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="bg-info bg-opacity-10 text-info rounded-4 p-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                        <i class="fa-solid fa-vault font-24"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small fw-bold text-uppercase mb-1">Platform Turnover</h6>
+                        <h3 class="fw-bold mb-0 text-info">{{ formatPrice($totalTurnover) }}</h3>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     {{-- Company Deductions Card --}}

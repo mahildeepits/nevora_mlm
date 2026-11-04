@@ -54,11 +54,18 @@
         <div class="card border-0 shadow-sm rounded-4">
             <div class="card-body p-3">
                 <form action="{{ route('admin.transactions.index') }}" method="GET" class="row g-2 align-items-center">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
-                            <input type="text" name="search" class="form-control border-start-0" placeholder="Search by TX hash, member name, ID or wallet..." value="{{ request('search') }}">
+                            <input type="text" name="search" class="form-control border-start-0" placeholder="Search hash, member, ID..." value="{{ request('search') }}">
                         </div>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="type" class="form-select">
+                            <option value="Credit" {{ request('type', 'Credit') === 'Credit' ? 'selected' : '' }}>Platform Transfers (Credits)</option>
+                            <option value="Debit" {{ request('type') === 'Debit' ? 'selected' : '' }}>Member Payments (Debits)</option>
+                            <option value="All" {{ request('type') === 'All' ? 'selected' : '' }}>All Records</option>
+                        </select>
                     </div>
                     <div class="col-md-3">
                         <select name="category" class="form-select">
@@ -78,7 +85,7 @@
                             @endfor
                         </select>
                     </div>
-                    <div class="col-md-3 d-flex gap-2">
+                    <div class="col-md-2 d-flex gap-2">
                         <button type="submit" class="btn btn-primary px-3 rounded-pill flex-grow-1">
                             <i class="fa-solid fa-filter me-1"></i> Filter
                         </button>
@@ -121,14 +128,28 @@
                                 <tr>
                                     <td class="ps-4 text-muted font-12">{{ $transactions->firstItem() + $index }}</td>
                                     <td>
-                                        <span class="badge bg-soft-primary text-primary font-11">{{ $tx->category }}</span>
+                                        @if($tx->category === 'Slot Income')
+                                            <span class="badge bg-success-subtle text-success font-11"><i class="fa-solid fa-arrow-down-left me-1"></i> Slot Income</span>
+                                        @elseif($tx->category === 'Reserved for Next Slot')
+                                            <span class="badge bg-warning-subtle text-warning font-11"><i class="fa-solid fa-vault me-1"></i> Reserved (Slot {{ $tx->slot_number + 1 }})</span>
+                                        @elseif($tx->category === 'Company Deduction')
+                                            <span class="badge bg-danger-subtle text-danger font-11"><i class="fa-solid fa-building-columns me-1"></i> Company Deduction</span>
+                                        @elseif($tx->category === 'Recycle Income')
+                                            <span class="badge bg-info-subtle text-info font-11"><i class="fa-solid fa-arrows-rotate me-1"></i> Recycle Income</span>
+                                        @elseif($tx->category === 'Activation Payment')
+                                            <span class="badge bg-primary-subtle text-primary font-11"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Activation Payment</span>
+                                        @else
+                                            <span class="badge bg-soft-primary text-primary font-11">{{ $tx->category }}</span>
+                                        @endif
                                         <div class="small text-muted font-11 mt-1">{{ $tx->description }}</div>
                                     </td>
                                     <td>
                                         <span class="badge bg-light text-dark border font-11">Slot {{ $tx->slot_number }}</span>
                                     </td>
                                     <td>
-                                        <strong class="font-14 text-dark">{{ formatPrice($tx->amount) }}</strong>
+                                        <strong class="font-14 {{ $tx->transaction_type === 'Debit' ? 'text-danger' : 'text-success' }}">
+                                            {{ $tx->transaction_type === 'Debit' ? '-' : '+' }}{{ formatPrice($tx->amount) }}
+                                        </strong>
                                     </td>
                                     <td>
                                         <div class="fw-bold font-12">{{ $tx->user?->name ?? 'User #' . $tx->user_id }}</div>

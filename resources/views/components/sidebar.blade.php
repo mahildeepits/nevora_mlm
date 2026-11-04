@@ -23,7 +23,7 @@
         </div>
     </div>
     
-    <div class="sidebar-body pt-0 data-scrollbar">
+    <div class="sidebar-body pt-0">
         <div class="sidebar-list">
             <ul class="navbar-nav iq-main-menu" id="sidebar-menu">
                 <li class="nav-item static-item">

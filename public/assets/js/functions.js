@@ -164,6 +164,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
         });
+
+        // Ensure native momentum scrolling is unhindered by SmoothScrollbar
+        const sidebarBody = sidebar.querySelector('.sidebar-body');
+        if (sidebarBody && typeof window.Scrollbar !== 'undefined' && window.Scrollbar.get) {
+            const sbInstance = window.Scrollbar.get(sidebarBody);
+            if (sbInstance) {
+                sbInstance.destroy();
+            }
+        }
     }
 
     // Smooth Crypto Loader Fadeout

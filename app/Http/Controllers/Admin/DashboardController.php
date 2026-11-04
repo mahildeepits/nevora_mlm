@@ -16,7 +16,9 @@ class DashboardController extends Controller
         $paidMembers = User::where('role_id', '!=', 1)->where('is_paid', true)->count();
         $unpaidMembers = $totalMembers - $paidMembers;
 
-        $totalTurnover = (float) UnifiedTransaction::where('status', 'Completed')->sum('amount');
+        $totalTurnover = (float) UnifiedTransaction::where('transaction_type', 'Credit')
+            ->where('status', 'Completed')
+            ->sum('amount');
         $companyDeductions = (float) UnifiedTransaction::where('category', 'Company Deduction')
             ->where('status', 'Completed')
             ->sum('amount');
@@ -34,6 +36,7 @@ class DashboardController extends Controller
         }
 
         $recentTransactions = UnifiedTransaction::with(['user', 'fromUser'])
+            ->where('transaction_type', 'Credit')
             ->latest()
             ->take(10)
             ->get();

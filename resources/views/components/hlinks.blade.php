@@ -29,7 +29,9 @@
 <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}?{{ rand(000000000, 999999999) }}">
 <!-- Theme Logic -->
 <script>
-    if (localStorage.getItem('theme') === 'dark') {
+    if (document.documentElement.id === 'member-layout' || window.location.pathname.startsWith('/member')) {
+        document.documentElement.setAttribute('data-bs-theme', 'dark');
+    } else if (localStorage.getItem('theme') === 'dark') {
         document.documentElement.setAttribute('data-bs-theme', 'dark');
     } else {
         document.documentElement.setAttribute('data-bs-theme', 'light');

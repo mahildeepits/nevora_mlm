@@ -19,13 +19,6 @@
 
         <div class="d-flex align-items-center">
             <ul class="navbar-nav ms-auto align-items-center navbar-list mb-0 flex-row">
-                {{-- Theme Switcher (Dark / Light) --}}
-                <li class="nav-item me-2 me-md-3">
-                    <a href="javascript:void(0);" onclick="toggleTheme()" class="btn btn-sm btn-icon btn-outline-secondary rounded-pill shadow-none" id="theme-btn" title="Toggle Light/Dark Theme">
-                        <i class="fa-solid fa-moon font-16 theme-icon"></i>
-                    </a>
-                </li>
-
                 @php $user = authUser(); @endphp
                 @if($user)
                     {{-- Wallet Address Pill (Desktop/Tablet) --}}

@@ -254,17 +254,32 @@
                             <div class="row g-3">
                                 <div class="col-12">
                                     <label class="form-label fw-bold font-13">Current Password <span class="text-danger">*</span></label>
-                                    <input type="password" name="current_password" class="form-control @error('current_password') is-invalid @enderror" required>
-                                    @error('current_password')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                    <div class="input-group">
+                                        <input type="password" name="current_password" id="current_password" class="form-control @error('current_password') is-invalid @enderror" required>
+                                        <button class="btn btn-outline-secondary" type="button" onclick="toggleProfilePassword('current_password', 'current_password_eye')" tabindex="-1" aria-label="Toggle current password visibility">
+                                            <i class="fa-solid fa-eye" id="current_password_eye"></i>
+                                        </button>
+                                    </div>
+                                    @error('current_password')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold font-13">New Password <span class="text-danger">*</span></label>
-                                    <input type="password" name="password" class="form-control @error('password') is-invalid @enderror" required minlength="6">
-                                    @error('password')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                    <div class="input-group">
+                                        <input type="password" name="password" id="profile_password" class="form-control @error('password') is-invalid @enderror" required minlength="6">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="toggleProfilePassword('profile_password', 'profile_password_eye')" tabindex="-1" aria-label="Toggle new password visibility">
+                                            <i class="fa-solid fa-eye" id="profile_password_eye"></i>
+                                        </button>
+                                    </div>
+                                    @error('password')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold font-13">Confirm New Password <span class="text-danger">*</span></label>
-                                    <input type="password" name="password_confirmation" class="form-control" required minlength="6">
+                                    <div class="input-group">
+                                        <input type="password" name="password_confirmation" id="profile_password_confirmation" class="form-control" required minlength="6">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="toggleProfilePassword('profile_password_confirmation', 'profile_password_confirmation_eye')" tabindex="-1" aria-label="Toggle confirm password visibility">
+                                            <i class="fa-solid fa-eye" id="profile_password_confirmation_eye"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="col-12 mt-4 text-end">
                                     <button type="submit" class="btn btn-primary px-4 rounded-pill">
@@ -379,6 +394,21 @@ function fallbackCopy(text, onSuccess) {
         console.error('Fallback copy failed', e);
     }
     document.body.removeChild(textArea);
+}
+
+function toggleProfilePassword(inputId, eyeId) {
+    const input = document.getElementById(inputId);
+    const eye = document.getElementById(eyeId);
+    if (!input || !eye) return;
+    if (input.type === 'password') {
+        input.type = 'text';
+        eye.classList.remove('fa-eye');
+        eye.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        eye.classList.remove('fa-eye-slash');
+        eye.classList.add('fa-eye');
+    }
 }
 </script>
 @endsection

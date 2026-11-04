@@ -47,6 +47,22 @@
         box-shadow: none !important;
         outline: none !important;
     }
+    .custom-input-group .btn-eye-toggle {
+        background: transparent;
+        border: none;
+        padding: 0 16px;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        outline: none;
+        box-shadow: none;
+        transition: color 0.2s ease;
+    }
+    .custom-input-group .btn-eye-toggle:hover {
+        color: #0f172a;
+    }
 </style>
 
 <div class="row m-0 align-items-center vh-100 justify-content-center" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
@@ -76,7 +92,10 @@
                         <label class="form-label fw-bold font-12 text-muted text-uppercase mb-1">Admin Password</label>
                         <div class="custom-input-group @error('password') has-error @enderror">
                             <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
-                            <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                            <input type="password" name="password" id="admin_password" class="form-control" placeholder="••••••••" required>
+                            <button class="btn-eye-toggle" type="button" onclick="togglePasswordVisibility('admin_password', 'admin_password_eye')" tabindex="-1" aria-label="Toggle password visibility">
+                                <i class="fa-solid fa-eye" id="admin_password_eye"></i>
+                            </button>
                         </div>
                         @error('password')<div class="invalid-feedback d-block font-11 mt-1">{{ $message }}</div>@enderror
                     </div>
@@ -95,4 +114,21 @@
         </div>
     </div>
 </div>
+
+<script>
+    function togglePasswordVisibility(inputId, eyeId) {
+        const input = document.getElementById(inputId);
+        const eye = document.getElementById(eyeId || (inputId + '-eye'));
+        if (!input || !eye) return;
+        if (input.type === 'password') {
+            input.type = 'text';
+            eye.classList.remove('fa-eye');
+            eye.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            eye.classList.remove('fa-eye-slash');
+            eye.classList.add('fa-eye');
+        }
+    }
+</script>
 @endsection

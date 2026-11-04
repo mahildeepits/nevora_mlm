@@ -12,6 +12,13 @@ class TransactionReportController extends Controller
     {
         $query = UnifiedTransaction::with(['user', 'fromUser'])->latest();
 
+        // Transaction Type Filter (defaults to 'Credit' for platform value transfers, preventing double-counting with mirror debits)
+        if ($request->filled('type') && $request->type !== 'All') {
+            $query->where('transaction_type', $request->type);
+        } elseif (!$request->filled('type') && !$request->filled('category')) {
+            $query->where('transaction_type', 'Credit');
+        }
+
         if ($request->filled('category')) {
             $query->where('category', $request->category);
         }
@@ -34,7 +41,9 @@ class TransactionReportController extends Controller
 
         $transactions = $query->paginate(25)->withQueryString();
 
-        $totalVolume = (float) UnifiedTransaction::where('status', 'Completed')->sum('amount');
+        $totalVolume = (float) UnifiedTransaction::where('transaction_type', 'Credit')
+            ->where('status', 'Completed')
+            ->sum('amount');
         $companyDeductions = (float) UnifiedTransaction::where('category', 'Company Deduction')
             ->where('status', 'Completed')
             ->sum('amount');

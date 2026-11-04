@@ -43,6 +43,9 @@
     }
 
     function toggleTheme() {
+        if (document.documentElement.id === 'member-layout' || window.location.pathname.startsWith('/member')) {
+            return; // Member portal is permanently locked to dark mode
+        }
         const currentTheme = document.documentElement.getAttribute('data-bs-theme');
         const newTheme = currentTheme === 'light' ? 'dark' : 'light';
         document.documentElement.setAttribute('data-bs-theme', newTheme);

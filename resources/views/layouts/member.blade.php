@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" dir="ltr" data-bs-theme="light" data-bs-theme-color="theme-color-default" id="member-layout">
+<html lang="en" dir="ltr" data-bs-theme="dark" data-bs-theme-color="theme-color-default" id="member-layout">
 
 <head>
   <x-hlinks />

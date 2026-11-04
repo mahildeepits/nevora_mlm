@@ -495,8 +495,37 @@
                 return true;
             }
 
-            // Ensure clean disconnected state on fresh registration load (never auto-connect by default)
-            NevoraWeb3.updateRegistrationTopBar(null);
+            // Check for and resume any pending paid registration from interrupted mobile sessions
+            if (typeof NevoraWeb3 !== 'undefined') {
+                NevoraWeb3.resumePendingRegistration().then((resumed) => {
+                    if (!resumed) {
+                        // Ensure clean disconnected state on fresh registration load (never auto-connect by default)
+                        NevoraWeb3.disconnectRegistrationWallet();
+                    }
+                });
+            }
+
+            // Auto-detect return from mobile wallet app after approving payment
+            function checkPendingRecovery() {
+                if (typeof NevoraWeb3 !== 'undefined') {
+                    const pendingRaw = localStorage.getItem('nevora_pending_registration');
+                    if (pendingRaw) {
+                        try {
+                            const pending = JSON.parse(pendingRaw);
+                            if (pending && pending.tx_hash) {
+                                NevoraWeb3.resumePendingRegistration();
+                            }
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible') {
+                    checkPendingRecovery();
+                }
+            });
+            window.addEventListener('focus', checkPendingRecovery);
 
             // Top Button: Connect Wallet Handlers (B-TITAN Authentic Flow - Opens Platforms Drawer)
             if (btnTopConnect) {
@@ -521,7 +550,7 @@
                             });
 
                             try {
-                                const res = await NevoraWeb3.connectByPlatform(walletId);
+                                const res = await NevoraWeb3.connectByPlatform(walletId, true);
                                 if (res && res.address) {
                                     Swal.close();
                                     clearWalletConnectError();

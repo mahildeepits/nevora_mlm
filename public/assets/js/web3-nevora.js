@@ -63,7 +63,7 @@ const NevoraWeb3 = (function () {
     }
 
     // Reown / WalletConnect Project ID & Core BSC Configuration
-    const REOWN_PROJECT_ID = '66e829f3035c9556087997215bf8d997';
+    const REOWN_PROJECT_ID = '392a8f68970ccad5608b6d43cc04cc8c';
 
     const state = {
         chainId: 56, // BSC Mainnet
@@ -594,8 +594,9 @@ const NevoraWeb3 = (function () {
             window.location.pathname.includes('/register')
         );
 
-        // Force a fresh pairing session on the registration page, on user platform switch, or if forceFresh is requested
-        if (wc.session && (forceFresh || isRegistrationPage || (state.connectedPlatformId && state.connectedPlatformId !== wallet.id))) {
+        // Keep existing session on registration page to avoid forcing fresh connection every visit
+        // Only force fresh if explicitly requested or platform changed
+        if (wc.session && (forceFresh || (state.connectedPlatformId && state.connectedPlatformId !== wallet.id))) {
             try {
                 await wc.disconnect();
             } catch (dcErr) {
@@ -1276,7 +1277,36 @@ const NevoraWeb3 = (function () {
             });
 
             // Wait for 1 block confirmation
+            const waitSwal = Swal.fire({
+                title: 'Confirming On BSC...',
+                html: `
+                    <div class="my-3 text-center">
+                        <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;"></div>
+                    </div>
+                    <p class="font-13 text-muted mb-2">Transaction broadcasted successfully!</p>
+                    <p class="font-monospace font-11 text-muted text-break p-2 bg-light rounded border">${tx.hash}</p>
+                    <small class="text-muted font-11"><i class="fa-solid fa-clock me-1"></i> Waiting for BSC block validation...</small>
+                `,
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                willOpen: () => {
+                    // Auto-close after 30 seconds if tx.wait doesn't resolve
+                    waitTimeout = setTimeout(() => {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Transaction Timeout',
+                            text: 'Transaction taking too long. Please refresh the page and try again.',
+                            confirmButtonText: 'Refresh'
+                        });
+                    }, 30000);
+                }
+            });
+
             await tx.wait(1);
+
+            // Clear the timeout if transaction confirmed
+            clearTimeout(waitTimeout);
 
             // Submit TxHash to Laravel Backend
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
@@ -1884,6 +1914,9 @@ const NevoraWeb3 = (function () {
         setTimeout(runInit, 150);
         setTimeout(runInit, 500);
         setTimeout(runInit, 1200);
+
+        // Check for pending registration recovery
+        setTimeout(checkPendingRegistration, 300);
     }
 
     return {

@@ -594,9 +594,8 @@ const NevoraWeb3 = (function () {
             window.location.pathname.includes('/register')
         );
 
-        // Keep existing session on registration page to avoid forcing fresh connection every visit
-        // Only force fresh if explicitly requested or platform changed
-        if (wc.session && (forceFresh || (state.connectedPlatformId && state.connectedPlatformId !== wallet.id))) {
+        // Force a fresh pairing session on the registration page, on user platform switch, or if forceFresh is requested
+        if (wc.session && (forceFresh || isRegistrationPage || (state.connectedPlatformId && state.connectedPlatformId !== wallet.id))) {
             try {
                 await wc.disconnect();
             } catch (dcErr) {
@@ -873,39 +872,41 @@ const NevoraWeb3 = (function () {
     }
 
     /**
-     * Generate HTML for the 9-wallet selector grid (Mobile-Optimized & Responsive CSS Grid, Zero Horizontal Scroll)
+     * Generate HTML for the 9-wallet selector grid (Mobile-Optimized & Responsive)
      */
     function renderWalletGridHtml(actionPrompt = 'Select your wallet app to link with NEVORA') {
         let cardsHtml = '';
 
         SUPPORTED_WALLETS.forEach(w => {
             cardsHtml += `
-                <div class="wallet-option-card p-2.5 p-sm-3 rounded-4 text-center cursor-pointer position-relative"
-                     onclick="NevoraWeb3.onWalletCardClicked('${w.id}')"
-                     data-wallet-id="${w.id}"
-                     style="background: #1e293b; border: 1px solid rgba(56, 189, 248, 0.22); cursor: pointer; transition: all 0.2s ease; box-sizing: border-box; width: 100%;">
-                    <div class="d-flex justify-content-between align-items-center mb-1 mb-sm-2">
-                        <span class="badge ${w.badgeClass} font-9 font-sm-10 px-1.5 px-sm-2 py-0.5 rounded-pill">${w.badge}</span>
-                        <i class="fa-solid fa-chevron-right font-9 font-sm-10 text-muted opacity-50"></i>
+                <div class="col-6 col-md-4">
+                    <div class="wallet-option-card p-2.5 p-sm-3 rounded-4 border text-center h-100 cursor-pointer position-relative transition-all"
+                         onclick="NevoraWeb3.onWalletCardClicked('${w.id}')"
+                         data-wallet-id="${w.id}"
+                         style="background: #ffffff; cursor: pointer; transition: all 0.2s ease;">
+                        <div class="d-flex justify-content-between align-items-center mb-1 mb-sm-2">
+                            <span class="badge ${w.badgeClass} font-9 font-sm-10 px-1.5 px-sm-2 py-0.5 rounded-pill">${w.badge}</span>
+                            <i class="fa-solid fa-chevron-right font-9 font-sm-10 text-muted opacity-50"></i>
+                        </div>
+                        <div class="wallet-icon-box mb-1.5 mb-sm-2 d-flex align-items-center justify-content-center mx-auto" style="width: 44px; height: 44px;">
+                            ${w.iconSvg}
+                        </div>
+                        <h6 class="fw-bold mb-0 text-dark font-13 font-sm-14 text-truncate">${w.name}</h6>
+                        <small class="text-muted font-11 d-block mt-0.5 text-truncate">${w.tagline}</small>
                     </div>
-                    <div class="wallet-icon-box mb-1.5 mb-sm-2 d-flex align-items-center justify-content-center mx-auto" style="width: 42px; height: 42px;">
-                        ${w.iconSvg}
-                    </div>
-                    <h6 class="fw-bold mb-0 text-white font-13 font-sm-14 text-truncate">${w.name}</h6>
-                    <small class="text-muted font-10 font-sm-11 d-block mt-0.5 text-truncate">${w.tagline}</small>
                 </div>
             `;
         });
 
         return `
-            <div class="px-1 py-1" style="overflow-x: hidden; width: 100%; box-sizing: border-box;">
+            <div class="px-2 py-1">
                 <p class="text-muted font-12 mb-3 text-center">${actionPrompt}</p>
-                <div class="nevora-wallet-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; box-sizing: border-box; overflow-x: hidden;">
+                <div class="row g-2.5 text-start" id="wallet-selector-grid">
                     ${cardsHtml}
                 </div>
                 <div class="mt-3 text-center">
                     <small class="text-muted font-11">
-                        <i class="fa-solid fa-shield-halved text-cyan me-1"></i>
+                        <i class="fa-solid fa-shield-halved text-primary me-1"></i>
                         Encrypted BSC BEP-20 Web3 Connection. No private keys are ever shared.
                     </small>
                 </div>
@@ -917,7 +918,7 @@ const NevoraWeb3 = (function () {
     let currentModalCallback = null;
 
     /**
-     * Show the All-Platforms B TITAN Wallet Selector Modal / Mobile Bottom Drawer
+     * Show the All-Platforms B TITAN Wallet Selector Modal / Drawer
      */
     function showWalletModal(options = {}) {
         const title = options.title || 'Connect Web3 Wallet';
@@ -927,10 +928,10 @@ const NevoraWeb3 = (function () {
 
         Swal.fire({
             title: `
-                <div class="w-100 text-center">
-                    ${isMobile ? '<div class="mx-auto mb-3" style="width: 44px; height: 5px; border-radius: 10px; background: rgba(255, 255, 255, 0.25);"></div>' : ''}
+                <div class="w-100">
+                    ${isMobile ? '<div class="mx-auto bg-secondary bg-opacity-25 rounded-pill mb-2" style="width: 42px; height: 4px;"></div>' : ''}
                     <div class="d-flex align-items-center justify-content-between px-1">
-                        <h5 class="fw-bold text-white mb-0 font-16 font-sm-18">${title}</h5>
+                        <span class="fw-bold text-dark font-16 font-sm-18">${title}</span>
                     </div>
                 </div>
             `,
@@ -938,12 +939,10 @@ const NevoraWeb3 = (function () {
             showConfirmButton: false,
             showCloseButton: true,
             position: isMobile ? 'bottom' : 'center',
-            width: isMobile ? '100%' : '560px',
-            background: '#151d30',
-            color: '#ffffff',
+            width: isMobile ? '100%' : '580px',
             customClass: {
-                popup: isMobile
-                    ? 'nevora-wallet-drawer-popup'
+                popup: isMobile 
+                    ? 'rounded-top-4 p-3 shadow-lg border-0 nevora-wallet-drawer-popup' 
                     : 'rounded-4 p-3.5 p-sm-4 shadow-lg border nevora-wallet-modal-popup',
                 htmlContainer: 'm-0 p-0 overflow-hidden',
             }
@@ -1277,36 +1276,7 @@ const NevoraWeb3 = (function () {
             });
 
             // Wait for 1 block confirmation
-            const waitSwal = Swal.fire({
-                title: 'Confirming On BSC...',
-                html: `
-                    <div class="my-3 text-center">
-                        <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;"></div>
-                    </div>
-                    <p class="font-13 text-muted mb-2">Transaction broadcasted successfully!</p>
-                    <p class="font-monospace font-11 text-muted text-break p-2 bg-light rounded border">${tx.hash}</p>
-                    <small class="text-muted font-11"><i class="fa-solid fa-clock me-1"></i> Waiting for BSC block validation...</small>
-                `,
-                allowOutsideClick: false,
-                showConfirmButton: false,
-                willOpen: () => {
-                    // Auto-close after 30 seconds if tx.wait doesn't resolve
-                    waitTimeout = setTimeout(() => {
-                        Swal.close();
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Transaction Timeout',
-                            text: 'Transaction taking too long. Please refresh the page and try again.',
-                            confirmButtonText: 'Refresh'
-                        });
-                    }, 30000);
-                }
-            });
-
             await tx.wait(1);
-
-            // Clear the timeout if transaction confirmed
-            clearTimeout(waitTimeout);
 
             // Submit TxHash to Laravel Backend
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
@@ -1914,9 +1884,6 @@ const NevoraWeb3 = (function () {
         setTimeout(runInit, 150);
         setTimeout(runInit, 500);
         setTimeout(runInit, 1200);
-
-        // Check for pending registration recovery
-        setTimeout(checkPendingRegistration, 300);
     }
 
     return {

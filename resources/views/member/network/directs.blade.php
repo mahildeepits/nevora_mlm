@@ -110,8 +110,8 @@
                                         @endif
                                     </td>
                                     <td class="pe-4 text-end">
-                                        <a href="{{ route('member.network.tree', ['memberId' => $direct->member_id]) }}" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1 font-11" title="View in Matrix Tree">
-                                            <i class="fa-solid fa-sitemap me-1"></i> Tree
+                                        <a href="{{ route('member.slots.tree', ['slot_number' => 1, 'memberId' => $direct->member_id]) }}" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1 font-11" title="View in Slots Tree">
+                                            <i class="fa-solid fa-cubes-stacked me-1"></i> Slots
                                         </a>
                                     </td>
                                 </tr>

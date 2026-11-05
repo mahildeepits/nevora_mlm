@@ -706,3 +706,872 @@ aside.sidebar .sidebar-body,
 @keyframes cryptoShimmer {
     to { background-position: 250% center; }
 }
+
+
+/* ==========================================================================
+   NEVORA BRAND PALETTE & B-TITAN STYLE 12-SLOTS & MATRIX TREE SYSTEM
+   ========================================================================== */
+
+:root {
+    --nv-cyan: #00d2ff;
+    --nv-cyan-hover: #38bdf8;
+    --nv-blue-primary: #2563eb;
+    --nv-blue-dark: #1d4ed8;
+    --nv-surface-card: #151d30;
+    --nv-surface-hover: #1b2844;
+    --nv-surface-gradient: linear-gradient(148deg, rgba(21, 29, 48, 0.95) 0%, rgba(27, 40, 68, 0.95) 100%);
+    --nv-border-glass: rgba(56, 189, 248, 0.18);
+    --nv-border-glow: rgba(0, 210, 255, 0.5);
+    --nv-cyan-glow-bg: rgba(0, 210, 255, 0.12);
+}
+
+/* Badge Utilities */
+.bg-cyan-glow {
+    background: rgba(0, 210, 255, 0.15) !important;
+    color: #38bdf8 !important;
+    border: 1px solid rgba(0, 210, 255, 0.35) !important;
+}
+
+.text-cyan {
+    color: #00d2ff !important;
+}
+
+.border-cyan-glow {
+    border-color: rgba(0, 210, 255, 0.35) !important;
+}
+
+/* ==========================================================================
+   SLOTS 12-GRID CATALOG (.nv-slot-card)
+   ========================================================================== */
+.nv-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 1.5rem;
+}
+
+@media (min-width: 1200px) {
+    .nv-slots-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 1600px) {
+    .nv-slots-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (max-width: 576px) {
+    .nv-slots-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+}
+
+.nv-slot-card {
+    position: relative;
+    background: var(--nv-surface-gradient);
+    border: 1px solid var(--nv-border-glass);
+    border-radius: 26px;
+    padding: 1.5rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    text-decoration: none !important;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    overflow: hidden;
+    min-height: 290px;
+}
+
+.nv-slot-card:hover:not(.locked) {
+    transform: translateY(-5px);
+    border-color: var(--nv-cyan);
+    box-shadow: 0 12px 30px rgba(0, 210, 255, 0.22);
+}
+
+.nv-slot-card.active-slot {
+    border-color: rgba(0, 210, 255, 0.35);
+}
+
+.nv-slot-card.active-slot::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 90px;
+    height: 90px;
+    background: radial-gradient(circle, rgba(0, 210, 255, 0.2) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+/* Slot Header */
+.nv-slot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.nv-slot-number-badge {
+    font-family: 'Unbounded', -apple-system, sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: #ffffff;
+    background: linear-gradient(135deg, #1d4ed8 0%, #00d2ff 100%);
+    padding: 6px 14px;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 210, 255, 0.25);
+    line-height: 1.1;
+}
+
+.nv-slot-cost-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Slot Mini Matrix Preview */
+.nv-slot-diagram-preview {
+    background: rgba(11, 17, 32, 0.6);
+    border: 1px solid rgba(56, 189, 248, 0.12);
+    border-radius: 18px;
+    padding: 1rem 0.8rem;
+    margin-bottom: 1.25rem;
+}
+
+.nv-slot-node-indicators {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0.9rem;
+}
+
+.nv-node-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #94a3b8;
+    transition: all 0.2s ease;
+}
+
+.nv-node-dot.filled {
+    background: linear-gradient(135deg, #2563eb 0%, #00d2ff 100%);
+    border-color: #00d2ff;
+    color: #ffffff;
+    box-shadow: 0 0 8px rgba(0, 210, 255, 0.4);
+}
+
+.nv-node-dot.recycle-dot {
+    border-radius: 50%;
+    border-color: #a855f7;
+    color: #c084fc;
+}
+
+.nv-node-dot.recycle-dot.filled {
+    background: linear-gradient(135deg, #7c3aed 0%, #c084fc 100%);
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+}
+
+/* 3-Metrics Row */
+.nv-slot-metrics {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 0.25rem;
+}
+
+.nv-slot-metric-item {
+    text-align: center;
+    flex: 1;
+}
+
+.nv-slot-metric-label {
+    display: block;
+    font-size: 10px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.nv-slot-metric-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+/* Slot Card Footer */
+.nv-slot-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.nv-slot-earning-label {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.nv-slot-earning-val {
+    font-size: 15px;
+    font-weight: 800;
+    color: #00d2ff;
+}
+
+/* Locked Frosted Glass Overlay */
+.nv-slot-card.locked {
+    cursor: not-allowed;
+}
+
+.nv-slot-locked-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 26px;
+    background: rgba(11, 17, 32, 0.78);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    text-align: center;
+    z-index: 5;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.nv-slot-lock-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 20px;
+    margin-bottom: 0.75rem;
+}
+
+/* ==========================================================================
+   SLOT TREE VIEW & CANVAS (.nv-tree-wrapper)
+   ========================================================================== */
+.nv-tree-container {
+    position: relative;
+    background: #0b1120;
+    border-radius: 24px;
+    border: 1px solid var(--nv-border-glass);
+    overflow: hidden;
+}
+
+.nv-tree-viewport {
+    position: relative;
+    min-height: 580px;
+    overflow: auto;
+    cursor: grab;
+    user-select: none;
+    padding: 2.5rem 1rem;
+    background-image: 
+        radial-gradient(circle at 50% 15%, rgba(0, 210, 255, 0.08) 0%, transparent 60%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 100% 100%, 32px 32px, 32px 32px;
+}
+
+.nv-tree-viewport:active {
+    cursor: grabbing;
+}
+
+.nv-tree-content {
+    min-width: 980px;
+    margin: 0 auto;
+    text-align: center;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transform-origin: 50% 20px;
+}
+
+/* Tree Nodes */
+.nv-tree-node-card {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    width: 140px;
+    padding: 12px 10px;
+    background: #151d30;
+    border: 2px solid rgba(56, 189, 248, 0.22);
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    text-decoration: none !important;
+    transition: all 0.25s ease;
+    position: relative;
+    z-index: 2;
+}
+
+.nv-tree-node-card:hover {
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 14px 30px rgba(0, 210, 255, 0.3);
+}
+
+/* Spot Roles Styling */
+.nv-tree-node-card.node-you {
+    width: 165px;
+    border-color: #00d2ff !important;
+    background: linear-gradient(145deg, #162a45 0%, #151d30 100%) !important;
+    box-shadow: 0 0 25px rgba(0, 210, 255, 0.35) !important;
+}
+
+.nv-tree-node-card.node-your-income {
+    border-color: #00d2ff !important;
+    box-shadow: 0 6px 20px rgba(0, 210, 255, 0.25);
+}
+
+.nv-tree-node-card.node-buy-level {
+    border-color: #6366f1 !important;
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.25);
+}
+
+.nv-tree-node-card.node-upline {
+    border-color: #ef4444 !important;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.25);
+}
+
+.nv-tree-node-card.node-downline {
+    border-color: #f59e0b !important;
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.25);
+}
+
+.nv-tree-node-card.node-recycle {
+    border-color: #c084fc !important;
+    box-shadow: 0 6px 20px rgba(192, 132, 252, 0.3);
+}
+
+.nv-tree-node-card.node-vacant {
+    border: 2px dashed rgba(255, 255, 255, 0.15) !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+    cursor: default;
+    opacity: 0.65;
+}
+
+.nv-tree-node-card.node-vacant:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* Tree Node Inner Details */
+.nv-node-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 6px;
+    border: 2px solid rgba(56, 189, 248, 0.3);
+}
+
+.nv-node-id-pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: rgba(0, 210, 255, 0.15);
+    color: #38bdf8;
+    margin-bottom: 4px;
+    font-family: monospace;
+}
+
+.nv-node-payment-tag {
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 100%;
+}
+
+/* Connector Lines */
+.nv-tree-connectors-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Tree Zoom Controls Floating Bar */
+.nv-tree-zoom-bar {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    background: rgba(21, 29, 48, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--nv-border-glass);
+    border-radius: 30px;
+    padding: 4px 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 10;
+}
+
+.nv-zoom-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.nv-zoom-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #00d2ff;
+}
+
+/* ==========================================================================
+   MOBILE MATRIX LIST VIEW (.nv-matrix-list)
+   ========================================================================== */
+.nv-matrix-list-section {
+    background: #151d30;
+    border: 1px solid var(--nv-border-glass);
+    border-radius: 20px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.nv-matrix-list-item {
+    background: rgba(11, 17, 32, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.nv-matrix-list-item:hover {
+    border-color: var(--nv-cyan);
+    background: rgba(27, 40, 68, 0.6);
+}
+
+/* ==========================================================================
+   PAYMENT ROUTING INSPECTOR (MODAL & OFFCANVAS)
+   ========================================================================== */
+.nv-payment-flow-route {
+    background: rgba(11, 17, 32, 0.75);
+    border: 1px solid var(--nv-border-glass);
+    border-radius: 18px;
+    padding: 1.25rem;
+    margin: 1.25rem 0;
+}
+
+.nv-flow-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.nv-flow-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0;
+    color: #00d2ff;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+/* ==========================================================================
+   LEGEND BAR
+   ========================================================================== */
+.nv-legend-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.6rem 1.2rem;
+    background: rgba(11, 17, 32, 0.85);
+    border: 1px solid var(--nv-border-glass);
+    border-radius: 18px;
+    padding: 0.75rem 1.25rem;
+}
+
+.nv-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 12px;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+.nv-legend-color-box {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+/* ==========================================================================
+   RESPONSIVE ENHANCEMENTS & MOBILE OVERHAUL
+   ========================================================================== */
+@media (max-width: 768px) {
+    .nv-tree-viewport {
+        min-height: 440px;
+        padding: 1.5rem 0.5rem;
+    }
+    .nv-tree-zoom-bar {
+        bottom: 0.75rem;
+        right: 0.75rem;
+    }
+    .nv-tree-node-card {
+        width: 120px;
+        padding: 8px 6px;
+    }
+    .nv-node-avatar {
+        width: 36px;
+        height: 36px;
+    }
+    .nv-node-id-pill {
+        font-size: 10px;
+    }
+    .nv-node-payment-tag {
+        font-size: 8.5px;
+    }
+}
+
+/* ==========================================================================
+   B-TITAN EXACT MATRIX TREE & MOBILE BOTTOM SHEET DRAWER
+   ========================================================================== */
+
+/* Prevent horizontal overflow on mobile screens */
+html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
+/* 1. B-TITAN Slot Banner (Centered Capsule) — NEVORA Brand Theme */
+.btitan-slot-banner {
+    background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+    border: 1px solid rgba(0, 210, 255, 0.4);
+    border-radius: 14px;
+    padding: 10px 24px;
+    max-width: 380px;
+    box-shadow: 0 4px 20px rgba(0, 210, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* 2. B-TITAN Cycle Indicator Badge — NEVORA Navy/Cyan */
+.btitan-cycle-badge {
+    background: #0f172a;
+    border: 1px solid rgba(0, 210, 255, 0.3);
+    border-radius: 12px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #38bdf8;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 10px rgba(0, 210, 255, 0.12);
+}
+
+/* 3. B-TITAN Tree Wrapper & Cybernetic Blue Grid Background */
+.btitan-tree-wrapper {
+    background: radial-gradient(circle at 50% 30%, #0f1f3d 0%, #070d19 100%);
+    border: 1px solid rgba(0, 210, 255, 0.25);
+    border-radius: 20px;
+    padding: 1.25rem 0.5rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.btitan-tree-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: 
+        linear-gradient(rgba(0, 210, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 210, 255, 0.05) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+}
+
+.btitan-tree-svg {
+    position: relative;
+    z-index: 1;
+    filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.5));
+    transition: opacity 0.25s ease, filter 0.25s ease, transform 0.25s ease;
+}
+
+.btitan-tree-wrapper.loading .btitan-tree-svg {
+    opacity: 0.35;
+    filter: blur(2px);
+    transform: scale(0.99);
+    pointer-events: none;
+}
+
+/* Breadcrumbs Navigation Bar */
+.btitan-breadcrumb-bar {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(0, 210, 255, 0.25);
+    border-radius: 14px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.btitan-crumb-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-decoration: none !important;
+    display: inline-flex;
+    align-items: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.btitan-crumb-btn:hover {
+    background: rgba(0, 210, 255, 0.15);
+    border-color: rgba(0, 210, 255, 0.4);
+    color: #00d2ff;
+    transform: translateY(-1px);
+}
+
+.btitan-crumb-btn.active {
+    background: linear-gradient(135deg, #1d4ed8 0%, #0284c7 100%);
+    border-color: #00d2ff;
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 2px 10px rgba(0, 210, 255, 0.4);
+    cursor: default;
+    pointer-events: none;
+}
+
+.btitan-legend-recycle {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #065f46;
+    border: 1.5px solid #34d399;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #34d399;
+    font-size: 9px;
+    flex-shrink: 0;
+}
+
+/* Tree Nodes Hover & Active Feedback */
+.btitan-node-link,
+.btitan-node-anchor {
+    text-decoration: none !important;
+    cursor: pointer !important;
+}
+
+.btitan-node-filled {
+    cursor: pointer !important;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease;
+    transform-origin: center;
+}
+
+.btitan-node-filled:hover {
+    filter: drop-shadow(0 0 12px #00d2ff) brightness(1.25);
+    transform: scale(1.06);
+}
+
+.btitan-node-filled:active {
+    transform: scale(0.96);
+}
+
+.btitan-node-vacant {
+    pointer-events: none !important;
+    cursor: default !important;
+    opacity: 0.85;
+}
+
+.btitan-tag-group text {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* 4. Exact B-TITAN Legend Box — NEVORA Surface */
+.btitan-legend-box {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: 18px;
+    padding: 14px 22px;
+    max-width: 440px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.btitan-legend-icon {
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.btitan-legend-triangle-up {
+    width: 0;
+    height: 0;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-bottom: 16px solid #e11d48;
+    display: inline-block;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 4px rgba(225, 29, 72, 0.5));
+}
+
+.btitan-legend-triangle-down {
+    width: 0;
+    height: 0;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-top: 16px solid #f59e0b;
+    display: inline-block;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.5));
+}
+
+/* 5. Bottom Navigation Buttons (NEVORA Pill Style) */
+.btitan-nav-btn {
+    background: #0f172a;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 14px;
+    color: #ffffff;
+    padding: 11px 20px;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.btitan-nav-btn:hover:not(.disabled) {
+    background: #1e293b;
+    border-color: #00d2ff;
+    color: #00d2ff;
+    box-shadow: 0 4px 16px rgba(0, 210, 255, 0.25);
+    transform: translateY(-2px);
+}
+
+.btitan-nav-btn.disabled {
+    pointer-events: none;
+    opacity: 0.35;
+}
+
+/* 6. Payment Flow Bottom Sheet Drawer & Mobile Popup Overhaul */
+.btitan-drawer-modal .modal-dialog {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btitan-drag-pill {
+    width: 44px;
+    height: 5px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* Mobile Screen Bottom Drawer Adaptations (Zero Horizontal Scrolling) */
+@media (max-width: 576px) {
+    .btitan-drawer-modal .modal-dialog,
+    .btitan-drawer-modal .modal-dialog-bottom {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        transform: translateY(100%);
+    }
+
+    .btitan-drawer-modal.show .modal-dialog,
+    .btitan-drawer-modal.show .modal-dialog-bottom {
+        transform: translateY(0) !important;
+    }
+
+    .btitan-drawer-content {
+        background: #0f172a !important;
+        border: 1px solid rgba(0, 210, 255, 0.35) !important;
+        border-bottom: none !important;
+        border-radius: 24px 24px 0 0 !important;
+        max-height: 85vh !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6) !important;
+        padding-bottom: env(safe-area-inset-bottom, 15px) !important;
+    }
+
+    /* Prevent any horizontal overflow on body/html or modals on mobile */
+    body.modal-open,
+    .swal2-container {
+        overflow-x: hidden !important;
+    }
+
+    /* SweetAlert2 Mobile Bottom Drawer Reset */
+    .swal2-container.swal2-bottom {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .swal2-container.swal2-bottom .swal2-popup.nevora-wallet-drawer-popup {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        border-radius: 24px 24px 0 0 !important;
+        overflow-x: hidden !important;
+    }
+}
+
+@media (min-width: 577px) {
+    .btitan-drawer-content {
+        background: #0f172a;
+        border: 1px solid rgba(0, 210, 255, 0.35);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+}
+

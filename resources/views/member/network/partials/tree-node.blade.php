@@ -10,7 +10,7 @@
         </div>
 
         <div class="fw-bold font-12 text-truncate" title="{{ $node['name'] }}">{{ Str::limit($node['name'], 12) }}</div>
-        <div class="badge bg-soft-primary text-primary font-10 px-2 py-0 mb-1 font-monospace">{{ $node['member_id'] }}</div>
+        <div class="badge bg-cyan-glow text-cyan font-10 px-2 py-0 mb-1 font-monospace">{{ $node['member_id'] }}</div>
 
         <div class="d-flex justify-content-center align-items-center gap-1 font-10 text-muted">
             <span>Slot {{ $node['current_slot_id'] }}</span>

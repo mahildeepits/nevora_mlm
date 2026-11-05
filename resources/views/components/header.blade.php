@@ -31,8 +31,8 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 [data-bs-theme="dark"] .iq-navbar-header {
-    background: linear-gradient(135deg, #0b1120 0%, #1e293b 60%, #111827 100%) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: linear-gradient(135deg, #0b1120 0%, #151d30 60%, #0f172a 100%) !important;
+    border-bottom: 1px solid rgba(0, 210, 255, 0.2);
 }
 .header-main-title {
     color: #ffffff !important;

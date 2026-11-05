@@ -6,6 +6,7 @@ use App\Http\Controllers\Member\ProfileController;
 use App\Http\Controllers\Member\NetworkController;
 use App\Http\Controllers\Member\WalletController;
 use App\Http\Controllers\Member\AnnouncementController;
+use App\Http\Controllers\Member\SlotController;
 
 Route::prefix('member')->name('member.')->middleware(['member_auth', 'block_user_actions'])->group(function () {
     // Dedicated Under Process / Action Blocked Notice Page
@@ -20,6 +21,12 @@ Route::prefix('member')->name('member.')->middleware(['member_auth', 'block_user
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
     Route::get('/payment-route-info', [DashboardController::class, 'paymentRouteInfo'])->name('payment.route_info');
     Route::post('/track-payment', [DashboardController::class, 'trackPayment'])->name('track.payment');
+
+    // B-TITAN Style Slots Matrix & Interactive Tree System
+    Route::controller(SlotController::class)->prefix('slots')->name('slots.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/{slot_number}/{memberId?}', 'showTree')->name('tree');
+    });
 
     // Dedicated Invite & Direct Downline Onboarding
     Route::get('/invite', [NetworkController::class, 'invite'])->name('invite');

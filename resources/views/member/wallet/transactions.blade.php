@@ -112,7 +112,7 @@
     <div class="col-12">
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
             <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center py-3">
-                <h5 class="fw-bold mb-0 text-primary">
+                <h5 class="fw-bold mb-0 text-cyan">
                     <i class="fa-solid fa-receipt me-2"></i> Transaction Records ({{ $transactions->total() }})
                 </h5>
             </div>
@@ -120,7 +120,7 @@
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
+                        <thead class="bg-dark bg-opacity-75 text-muted border-bottom border-secondary border-opacity-25">
                             <tr>
                                 <th class="ps-4">#</th>
                                 <th>Category / Type</th>

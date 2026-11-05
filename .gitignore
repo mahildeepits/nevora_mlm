@@ -8,3 +8,4 @@ storage/logs/
 storage/app/
 bootstrap/cache/
 .vscode/
+scratch/

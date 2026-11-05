@@ -478,14 +478,16 @@
             <div class="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <h5 class="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
-                        <i class="fa-solid fa-cubes-stacked text-primary"></i>
+                        <i class="fa-solid fa-cubes-stacked text-cyan"></i>
                         <span>12-Slot Progression Matrix</span>
                     </h5>
                     <p class="text-muted font-12 mb-0">Track your simultaneous earnings and autopool activations across all 12 slots.</p>
                 </div>
-                <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2 font-11 fw-bold">
-                    All Slots Earn Concurrently
-                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{{ route('member.slots.index') }}" class="btn btn-sm btn-primary rounded-pill px-3 font-11 fw-bold shadow-sm" style="background: linear-gradient(135deg, #1d4ed8 0%, #00d2ff 100%); border: none;">
+                        <i class="fa-solid fa-cubes-stacked me-1"></i> Dedicated Slots Menu
+                    </a>
+                </div>
             </div>
             <div class="card-body p-4">
                 <div class="row row-cols-2 row-cols-md-4 row-cols-xl-6 g-3">
@@ -497,7 +499,7 @@
                             $completed = $pos && $pos->is_completed;
                         @endphp
                         <div class="col">
-                            <div class="card border {{ $isCurrent ? 'border-primary shadow-sm bg-primary-subtle bg-opacity-10' : ($isActive ? 'border-success-subtle bg-light bg-opacity-50' : 'border-light-subtle bg-light bg-opacity-25') }} rounded-3 text-center h-100 p-2.5 position-relative overflow-hidden transition-all">
+                            <a href="{{ $isActive ? route('member.slots.tree', ['slot_number' => $s->slot_number]) : route('member.slots.index') }}" class="card border {{ $isCurrent ? 'border-primary shadow-sm bg-primary-subtle bg-opacity-10' : ($isActive ? 'border-success-subtle bg-light bg-opacity-50' : 'border-light-subtle bg-light bg-opacity-25') }} rounded-3 text-center h-100 p-2.5 position-relative overflow-hidden transition-all text-decoration-none">
                                 @if($isCurrent)
                                     <div class="position-absolute top-0 end-0 bg-primary text-white px-2 py-0.5 rounded-bottom-start small" style="font-size: 9px; font-weight: 700;">CURRENT</div>
                                 @endif
@@ -506,7 +508,7 @@
                                         Slot {{ $s->slot_number }}
                                     </span>
                                 </div>
-                                <h6 class="fw-bold font-13 mb-0 mt-1 {{ $isActive ? 'text-primary' : 'text-muted' }}">
+                                <h6 class="fw-bold font-13 mb-0 mt-1 {{ $isActive ? 'text-cyan' : 'text-muted' }}">
                                     ${{ number_format($s->entry_fee, 0) }}
                                 </h6>
                                 <span class="text-muted font-10 d-block text-truncate mt-0.5">{{ $s->name }}</span>
@@ -517,7 +519,7 @@
                                         <span class="text-muted"><i class="fa-solid fa-lock"></i> Locked</span>
                                     @endif
                                 </div>
-                            </div>
+                            </a>
                         </div>
                     @endforeach
                 </div>

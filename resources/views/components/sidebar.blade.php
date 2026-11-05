@@ -56,11 +56,12 @@
                     </a>
                 </li>
 
-                {{-- 2. Network (4 Modules) --}}
+                {{-- 2. Slots (Matrix & Tree View) --}}
                 <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('member.network.tree*') ? 'active' : '' }}" href="{{ route('member.network.tree') }}">
-                        <i class="fa-solid fa-sitemap icon"></i>
-                        <span class="item-name">3-Matrix Tree</span>
+                    <a class="nav-link {{ request()->routeIs('member.slots*') ? 'active' : '' }}" href="{{ route('member.slots.index') }}">
+                        <i class="fa-solid fa-cubes-stacked icon"></i>
+                        <span class="item-name">Slots</span>
+                        <span class="badge rounded-pill bg-cyan-glow text-dark fw-bold ms-auto font-10">12 Slots</span>
                     </a>
                 </li>
                 <li class="nav-item">

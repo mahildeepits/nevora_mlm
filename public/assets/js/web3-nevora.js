@@ -63,7 +63,7 @@ const NevoraWeb3 = (function () {
     }
 
     // Reown / WalletConnect Project ID & Core BSC Configuration
-    const REOWN_PROJECT_ID = '392a8f68970ccad5608b6d43cc04cc8c';
+    const REOWN_PROJECT_ID = '66e829f3035c9556087997215bf8d997';
 
     const state = {
         chainId: 56, // BSC Mainnet
@@ -941,8 +941,8 @@ const NevoraWeb3 = (function () {
             background: '#151d30',
             color: '#ffffff',
             customClass: {
-                popup: isMobile 
-                    ? 'nevora-wallet-drawer-popup' 
+                popup: isMobile
+                    ? 'nevora-wallet-drawer-popup'
                     : 'rounded-4 p-3.5 p-sm-4 shadow-lg border nevora-wallet-modal-popup',
                 htmlContainer: 'm-0 p-0 overflow-hidden',
             }

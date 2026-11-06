@@ -1080,8 +1080,13 @@ const NevoraWeb3 = (function () {
                 throw new Error('Active Web3 wallet provider disconnected. Please reconnect your wallet.');
             }
 
+            await ensureBscNetwork(activeRawProvider);
             const browserProvider = new ethers.BrowserProvider(activeRawProvider, BSC_STATIC_NETWORK, { staticNetwork: true });
             const signer = await browserProvider.getSigner();
+            const signerAddress = (await signer.getAddress()).toLowerCase();
+            if (signerAddress !== connectedAddress.toLowerCase()) {
+                throw new Error('The active wallet account changed. Reconnect the intended wallet before paying.');
+            }
             const usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, BEP20_ABI, signer);
 
             // Fast gas overrides avoid slow estimateGas round-trips over mobile connection

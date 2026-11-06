@@ -1,0 +1,3 @@
+# Paste your Reown / WalletConnect verification token below
+# Example: walletconnect-verification=YOUR_UNIQUE_CODE
+

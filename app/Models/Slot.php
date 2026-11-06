@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Slot extends Model
 {
@@ -33,6 +34,18 @@ class Slot extends Model
             'max_recycles' => 'integer',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Dynamic entry fee: Allows temporary override (e.g. for testing registration fee) via REGISTRATION_FEE env
+     */
+    protected function entryFee(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => ($this->slot_number == 1 && env('REGISTRATION_FEE') !== null)
+                ? (float) env('REGISTRATION_FEE')
+                : (float) $value
+        );
     }
 
     public function positions(): HasMany

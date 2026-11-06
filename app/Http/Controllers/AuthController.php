@@ -203,13 +203,15 @@ class AuthController extends Controller
         $routing = $this->paymentRouteService->resolvePayeeForNewRegistration($sponsor->member_id, $slotNumber);
         $payeeUser = $routing['payee_user'] ?? null;
         $payeeWallet = $routing['wallet_address'];
+        $amount = (float) $routing['amount'];
+        $amountWei = bcmul(number_format($amount, 2, '.', ''), '1000000000000000000', 0);
 
         return response()->json([
             'status' => true,
             'slot_number' => 1,
             'slot_name' => $slot->name,
-            'amount' => (float) $routing['amount'],
-            'amount_wei' => bcmul((string) $routing['amount'], '1000000000000000000'),
+            'amount' => $amount,
+            'amount_wei' => $amountWei,
             'payee_name' => $payeeUser ? $payeeUser->name : 'Eligible Beneficiary',
             'payee_member_id' => $payeeUser ? $payeeUser->member_id : 'COMPANY01',
             'payee_address' => $payeeWallet,
@@ -224,6 +226,9 @@ class AuthController extends Controller
     {
         $alreadyLoggedIn = Auth::guard('web')->user() ?? Auth::guard('member')->user();
 
+        $regFee = (float) env('REGISTRATION_FEE', 0.10);
+        $regFeeFormatted = number_format($regFee, 2);
+
         $validator = Validator::make($request->all(), [
             'sponsor_id' => 'required|exists:users,member_id',
             'name' => 'required|string|max:100',
@@ -237,7 +242,7 @@ class AuthController extends Controller
         ], [
             'wallet_address.required' => 'Please connect your SafePal or Web3 wallet to complete registration.',
             'wallet_address.regex' => 'Please connect a valid BSC (BEP-20) wallet address starting with 0x (42 characters).',
-            'tx_hash.required' => 'Payment authorization required. Please approve the $15 USDT transfer in your wallet.',
+            'tx_hash.required' => "Payment authorization required. Please approve the \${$regFeeFormatted} USDT transfer in your wallet.",
         ]);
 
         if ($validator->fails()) {

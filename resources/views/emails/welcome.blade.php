@@ -105,10 +105,10 @@
                             <!-- Activation Next Step Callout -->
                             <div style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%); border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 18px; margin: 0 0 25px; text-align: center;">
                                 <h3 style="font-size: 15px; font-weight: 800; color: #1e40af; margin: 0 0 6px;">
-                                    🚀 Next Step: Activate Slot 1 ($15.00 USDT)
+                                    🚀 Next Step: Activate Slot 1 (${{ number_format((float) env('REGISTRATION_FEE', 15.00), 2) }} USDT)
                                 </h3>
                                 <p style="font-size: 13px; line-height: 1.5; color: #334155; margin: 0 0 16px;">
-                                    Your account is currently in pending activation status. Complete the 1-click $15 USDT transfer from your connected Web3 wallet to activate your position and unlock 3-matrix peer-to-peer earnings.
+                                    Your account is currently in pending activation status. Complete the 1-click ${{ number_format((float) env('REGISTRATION_FEE', 15.00), 2) }} USDT transfer from your connected Web3 wallet to activate your position and unlock 3-matrix peer-to-peer earnings.
                                 </p>
                                 <a href="{{ route('member.dashboard') }}" style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 28px; border-radius: 50px; box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);">
                                     Go to Member Dashboard &rarr;

@@ -988,8 +988,9 @@ const NevoraWeb3 = (function () {
             });
 
             const usdtBalance = await getUsdtBalance(connectedAddress);
+            const requiredFee = typeof window.REGISTRATION_FEE !== 'undefined' ? parseFloat(window.REGISTRATION_FEE) : 0.10;
 
-            if (usdtBalance < 15.0) {
+            if (usdtBalance < requiredFee) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Insufficient Balance',
@@ -1001,11 +1002,11 @@ const NevoraWeb3 = (function () {
                             </div>
                             <div class="d-flex justify-content-between font-13">
                                 <span class="text-muted">Required to Register:</span>
-                                <span class="fw-bold text-primary font-monospace">$15.00 USDT</span>
+                                <span class="fw-bold text-primary font-monospace">$${requiredFee.toFixed(2)} USDT</span>
                             </div>
                         </div>
                         <p class="font-12 text-muted mb-1">Your balance is not sufficient to complete registration.</p>
-                        <p class="font-11 text-muted mb-0">Please deposit at least $15.00 USDT (BEP-20) and a little BNB for gas into your wallet, then try again.</p>
+                        <p class="font-11 text-muted mb-0">Please deposit at least $${requiredFee.toFixed(2)} USDT (BEP-20) and a little BNB for gas into your wallet, then try again.</p>
                     `,
                     confirmButtonText: 'OK',
                     confirmButtonColor: '#2563eb'
@@ -1040,8 +1041,8 @@ const NevoraWeb3 = (function () {
             const payeeAddress = payeeData.payee_address;
             const payeeMemberId = payeeData.payee_member_id;
             const payeeMasked = payeeData.payee_masked_address || (payeeAddress.slice(0, 6) + '...' + payeeAddress.slice(-4));
-            const amountUsdt = payeeData.amount || 15.0;
-            const amountWei = BigInt(payeeData.amount_wei || '15000000000000000000');
+            const amountUsdt = payeeData.amount || requiredFee;
+            const amountWei = BigInt(payeeData.amount_wei || `${Math.round(amountUsdt * 1e18)}`);
             const appScheme = getWalletAppScheme(wallet.id);
 
             // Stash pending registration details in localStorage
@@ -1060,7 +1061,7 @@ const NevoraWeb3 = (function () {
 
             // 3. Prompt user for signature in wallet
             Swal.fire({
-                title: 'Authorize $15 USDT in Wallet',
+                title: `Authorize $${parseFloat(amountUsdt).toFixed(2)} USDT in Wallet`,
                 html: `
                     <div class="p-3 bg-light rounded-4 text-start mb-3 border">
                         <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
@@ -1211,7 +1212,7 @@ const NevoraWeb3 = (function () {
                 Swal.fire({
                     icon: 'info',
                     title: 'Payment Cancelled',
-                    text: 'You declined the $15 USDT transfer in your wallet app.',
+                    text: `You declined the $${parseFloat(amountUsdt || requiredFee).toFixed(2)} USDT transfer in your wallet app.`,
                     confirmButtonText: 'OK'
                 });
             } else {

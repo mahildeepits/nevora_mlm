@@ -1398,8 +1398,9 @@ const NevoraWeb3 = (function () {
 
             const usdtBalance = await getUsdtBalance(connectedAddress);
 
-            // Strict check: if less than 15.00 USDT, BLOCK REGISTRATION
-            if (usdtBalance < 15.0) {
+            const requiredFee = typeof window.REGISTRATION_FEE !== 'undefined' ? parseFloat(window.REGISTRATION_FEE) : 0.10;
+            // Strict check: if less than required registration fee, BLOCK REGISTRATION
+            if (usdtBalance < requiredFee) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Insufficient Balance',
@@ -1411,11 +1412,11 @@ const NevoraWeb3 = (function () {
                             </div>
                             <div class="d-flex justify-content-between font-13">
                                 <span class="text-muted">Required to Register:</span>
-                                <span class="fw-bold text-primary font-monospace">$15.00 USDT</span>
+                                <span class="fw-bold text-primary font-monospace">$${requiredFee.toFixed(2)} USDT</span>
                             </div>
                         </div>
                         <p class="font-12 text-muted mb-1">Your balance is not sufficient to register.</p>
-                        <p class="font-11 text-muted mb-0">Please deposit at least 15.00 USDT into your wallet on BNB Smart Chain and try again.</p>
+                        <p class="font-11 text-muted mb-0">Please deposit at least ${requiredFee.toFixed(2)} USDT into your wallet on BNB Smart Chain and try again.</p>
                         <div class="mt-2 text-danger font-11 fw-semibold">
                             <i class="fa-solid fa-circle-exclamation me-1"></i> Your account has NOT been registered.
                         </div>
@@ -1455,8 +1456,8 @@ const NevoraWeb3 = (function () {
             const payeeAddress = payeeData.payee_address;
             const payeeMemberId = payeeData.payee_member_id;
             const payeeMasked = payeeData.payee_masked_address || (payeeAddress.slice(0, 6) + '...' + payeeAddress.slice(-4));
-            const amountUsdt = payeeData.amount || 15.0;
-            const amountWei = BigInt(payeeData.amount_wei || '15000000000000000000');
+            const amountUsdt = payeeData.amount || requiredFee;
+            const amountWei = BigInt(payeeData.amount_wei || `${Math.round(amountUsdt * 1e18)}`);
 
             const appScheme = getWalletAppScheme(wallet.id);
 
@@ -1471,7 +1472,7 @@ const NevoraWeb3 = (function () {
             localStorage.setItem('nevora_pending_registration', JSON.stringify(pendingRegistration));
 
             Swal.fire({
-                title: 'Authorize $15 USDT in Wallet',
+                title: `Authorize $${parseFloat(amountUsdt).toFixed(2)} USDT in Wallet`,
                 html: `
                     <div class="p-3 bg-light rounded-4 text-start mb-3 border">
                         <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
@@ -1690,7 +1691,7 @@ const NevoraWeb3 = (function () {
                     <div class="my-3 text-center">
                         <div class="spinner-border text-primary" role="status" style="width: 2.8rem; height: 2.8rem;"></div>
                     </div>
-                    <p class="font-13 text-muted mb-2">We detected your completed $15.00 USDT payment on BSC!</p>
+                    <p class="font-13 text-muted mb-2">We detected your completed $${parseFloat(pending.amount || requiredFee).toFixed(2)} USDT payment on BSC!</p>
                     <p class="font-monospace font-11 text-muted text-break p-2 bg-light rounded border">${pending.tx_hash}</p>
                     <small class="text-muted font-11"><i class="fa-solid fa-shield-halved text-success me-1"></i> Completing account activation...</small>
                 `,

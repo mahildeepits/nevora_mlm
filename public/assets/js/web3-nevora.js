@@ -1122,8 +1122,8 @@ const NevoraWeb3 = (function () {
 
             const pollResult = await pollTransactionReceipt(tx.hash, 45);
 
-            if (!pollResult.success && !pollResult.timeout) {
-                throw new Error(pollResult.reason || 'Transaction could not be confirmed on BNB Smart Chain.');
+            if (!pollResult.success) {
+                throw new Error(pollResult.reason || 'The payment is still awaiting 12 confirmations. Your transaction is saved; return to this page and complete registration once confirmations are reached.');
             }
 
             // 7. Atomic User Registration Submission
@@ -1401,6 +1401,11 @@ const NevoraWeb3 = (function () {
         try {
             const pending = JSON.parse(pendingRaw);
             if (!pending || !pending.tx_hash) return false;
+
+            // Clean credentials written by older versions of the registration flow.
+            delete pending.password;
+            delete pending.password_confirmation;
+            localStorage.setItem('nevora_pending_registration', JSON.stringify(pending));
 
             // Expire after 2 hours
             if (Date.now() - pending.timestamp > 2 * 3600 * 1000) {

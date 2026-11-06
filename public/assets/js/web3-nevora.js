@@ -1001,8 +1001,12 @@ const NevoraWeb3 = (function () {
             const appScheme = getWalletAppScheme(wallet.id);
 
             // Stash pending registration details in localStorage
+            // Never persist passwords or other credentials in browser storage.
+            // Recovery asks the user to re-enter the password after returning from the wallet.
             const pendingReg = {
-                ...formInputs,
+                sponsor_id: formInputs.sponsor_id,
+                name: formInputs.name,
+                email: formInputs.email,
                 wallet_address: connectedAddress,
                 amount: amountUsdt,
                 payee_address: payeeAddress,
@@ -1391,6 +1395,36 @@ const NevoraWeb3 = (function () {
                 allowOutsideClick: false
             }).then(async (result) => {
                 if (result.isConfirmed) {
+                    const passwordResult = await Swal.fire({
+                        title: 'Confirm Your Registration Password',
+                        input: 'password',
+                        inputLabel: 'Re-enter the password you chose during registration',
+                        inputPlaceholder: 'Registration password',
+                        inputAttributes: { autocomplete: 'new-password', autocapitalize: 'off' },
+                        showCancelButton: true,
+                        confirmButtonText: 'Continue',
+                        inputValidator: (value) => !value ? 'Please enter your registration password.' : undefined
+                    });
+
+                    if (!passwordResult.isConfirmed) return;
+
+                    const confirmationResult = await Swal.fire({
+                        title: 'Confirm Password',
+                        input: 'password',
+                        inputLabel: 'Enter the same password again',
+                        inputPlaceholder: 'Confirm registration password',
+                        inputAttributes: { autocomplete: 'new-password', autocapitalize: 'off' },
+                        showCancelButton: true,
+                        confirmButtonText: 'Finalize Registration',
+                        inputValidator: (value) => {
+                            if (!value) return 'Please confirm your password.';
+                            if (value !== passwordResult.value) return 'The passwords do not match.';
+                            return undefined;
+                        }
+                    });
+
+                    if (!confirmationResult.isConfirmed) return;
+
                     Swal.fire({
                         title: 'Finalizing Account...',
                         html: '<div class="spinner-border text-success my-3" role="status"></div>',
@@ -1399,6 +1433,11 @@ const NevoraWeb3 = (function () {
                     });
 
                     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const recoveryPayload = {
+                        ...pending,
+                        password: passwordResult.value,
+                        password_confirmation: confirmationResult.value
+                    };
                     const res = await fetch('/register', {
                         method: 'POST',
                         headers: {
@@ -1406,7 +1445,7 @@ const NevoraWeb3 = (function () {
                             'Accept': 'application/json',
                             'X-CSRF-TOKEN': csrfToken
                         },
-                        body: JSON.stringify(pending)
+                        body: JSON.stringify(recoveryPayload)
                     });
 
                     const data = await res.json();

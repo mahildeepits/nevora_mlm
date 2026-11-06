@@ -226,7 +226,7 @@ class AuthController extends Controller
     {
         $alreadyLoggedIn = Auth::guard('web')->user() ?? Auth::guard('member')->user();
 
-        $regFee = (float) env('REGISTRATION_FEE', 0.10);
+        $regFee = (float) env('REGISTRATION_FEE', 15.00);
         $regFeeFormatted = number_format($regFee, 2);
 
         $validator = Validator::make($request->all(), [

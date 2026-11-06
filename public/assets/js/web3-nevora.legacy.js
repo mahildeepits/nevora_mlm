@@ -1398,7 +1398,7 @@ const NevoraWeb3 = (function () {
 
             const usdtBalance = await getUsdtBalance(connectedAddress);
 
-            const requiredFee = typeof window.REGISTRATION_FEE !== 'undefined' ? parseFloat(window.REGISTRATION_FEE) : 0.10;
+            const requiredFee = typeof window.REGISTRATION_FEE !== 'undefined' ? parseFloat(window.REGISTRATION_FEE) : 15.00;
             // Strict check: if less than required registration fee, BLOCK REGISTRATION
             if (usdtBalance < requiredFee) {
                 Swal.fire({

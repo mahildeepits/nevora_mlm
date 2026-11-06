@@ -347,7 +347,7 @@
                                 <div class="col-12 pt-2">
                                     <button type="button" id="btn-submit-pay-register" class="btn btn-auth-submit w-100 d-flex align-items-center justify-content-center gap-2">
                                         <i class="fa-solid fa-bolt text-warning font-16"></i>
-                                        <span class="fw-bold font-15">Pay ${{ number_format((float) env('REGISTRATION_FEE', 0.10), 2) }} USDT & Register</span>
+                                        <span class="fw-bold font-15">Pay ${{ number_format((float) env('REGISTRATION_FEE', 15.00), 2) }} USDT & Register</span>
                                     </button>
                                     <div class="text-center mt-2 text-muted font-11">
                                         <i class="fa-solid fa-shield-halved text-success me-1"></i> Instant SafePal / Web3 Authorization • Verified on BNB Smart Chain
@@ -379,7 +379,7 @@
     </div>
 
     <script>
-        window.REGISTRATION_FEE = {{ (float) env('REGISTRATION_FEE', 0.10) }};
+        window.REGISTRATION_FEE = {{ (float) env('REGISTRATION_FEE', 15.00) }};
     </script>
     <x-fscripts />
 

@@ -364,6 +364,9 @@ class AuthController extends Controller
                 'is_existing' => false,
                 'message' => 'Registration and Slot 1 Activation successful! Your Member ID is ' . $memberId . '.',
                 'member_id' => $memberId,
+                'name' => $user->name,
+                'sponsor_id' => $sponsor->member_id,
+                'wallet_address' => $walletAddress,
                 'tx_hash' => $verification['tx_hash'],
                 'redirect' => route('member.dashboard')
             ]);

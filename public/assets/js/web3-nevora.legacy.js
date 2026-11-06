@@ -1569,6 +1569,8 @@ const NevoraWeb3 = (function () {
 
             if (regData && regData.status) {
                 localStorage.removeItem('nevora_pending_registration');
+                const memberName = regData.name || formInputs?.name || '';
+                const sponsorMemberId = regData.sponsor_id || formInputs?.sponsor_id || '';
                 if (regData.is_already_logged_in) {
                     Swal.fire({
                         icon: 'success',
@@ -1582,11 +1584,11 @@ const NevoraWeb3 = (function () {
                                 </div>
                                 <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
                                     <span class="text-muted">Full Name:</span>
-                                    <span class="fw-bold text-dark">${regData.name}</span>
+                                    <span class="fw-bold text-dark">${memberName}</span>
                                 </div>
                                 <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
                                     <span class="text-muted">Sponsor ID:</span>
-                                    <span class="fw-bold font-monospace text-primary">${regData.sponsor_id}</span>
+                                    <span class="fw-bold font-monospace text-primary">${sponsorMemberId}</span>
                                 </div>
                                 <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
                                     <span class="text-muted">Linked Wallet:</span>

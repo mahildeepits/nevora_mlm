@@ -97,21 +97,29 @@
                                     <td style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2563eb; font-weight: 700; font-family: monospace;">{{ $user->sponsor_id ?? 'COMPANY01' }}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 12px 18px; font-size: 13px; color: #64748b; font-weight: 600;">Linked BEP-20 Wallet:</td>
-                                    <td style="padding: 12px 18px; font-size: 12px; color: #0f172a; font-family: monospace; font-weight: 600; word-break: break-all;">{{ $user->wallet_address }}</td>
+                                    <td style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b; font-weight: 600;">Linked BEP-20 Wallet:</td>
+                                    <td style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #0f172a; font-family: monospace; font-weight: 600; word-break: break-all;">{{ $user->wallet_address }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 12px 18px; font-size: 13px; color: #64748b; font-weight: 600;">Account Status:</td>
+                                    <td style="padding: 12px 18px; font-size: 13px; color: #16a34a; font-weight: 700;">
+                                        <span style="display: inline-block; background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px;">
+                                            &#10003; Slot 1 Paid & Active
+                                        </span>
+                                    </td>
                                 </tr>
                             </table>
 
-                            <!-- Activation Next Step Callout -->
-                            <div style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%); border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 18px; margin: 0 0 25px; text-align: center;">
-                                <h3 style="font-size: 15px; font-weight: 800; color: #1e40af; margin: 0 0 6px;">
-                                    🚀 Next Step: Activate Slot 1 (${{ number_format((float) env('REGISTRATION_FEE', 15.00), 2) }} USDT)
+                            <!-- Account Activated Callout -->
+                            <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(37, 99, 235, 0.08) 100%); border: 1.5px solid #a7f3d0; border-radius: 12px; padding: 20px; margin: 0 0 25px; text-align: center;">
+                                <h3 style="font-size: 16px; font-weight: 800; color: #065f46; margin: 0 0 6px;">
+                                    🎉 Slot 1 Activated & Account Ready!
                                 </h3>
                                 <p style="font-size: 13px; line-height: 1.5; color: #334155; margin: 0 0 16px;">
-                                    Your account is currently in pending activation status. Complete the 1-click ${{ number_format((float) env('REGISTRATION_FEE', 15.00), 2) }} USDT transfer from your connected Web3 wallet to activate your position and unlock 3-matrix peer-to-peer earnings.
+                                    Your account has been fully activated in the NEVORA 3-Matrix network. You are ready to share your referral link, grow your network, and receive instant peer-to-peer Web3 rewards directly into your connected wallet.
                                 </p>
-                                <a href="{{ route('member.dashboard') }}" style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 28px; border-radius: 50px; box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);">
-                                    Go to Member Dashboard &rarr;
+                                <a href="{{ route('member.dashboard') }}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 28px; border-radius: 50px; box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);">
+                                    Access Member Dashboard &rarr;
                                 </a>
                             </div>
 

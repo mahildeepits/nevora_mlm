@@ -257,7 +257,7 @@ class P2PBlockchainService
             $result = $response->json('result');
 
             return is_string($result) ? $result : null;
-        } catch (\\Throwable $th) {
+        } catch (\Throwable $th) {
             Log::warning("BSC RPC request failed for {$rpc}: " . $th->getMessage());
             return null;
         }

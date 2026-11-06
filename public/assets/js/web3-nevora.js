@@ -1,22 +1,19 @@
 /**
- * NEVORA Web3 & Multi-Platform Integration Engine (B TITAN Native Experience)
- * Genuine WalletConnect v2 & Injected Web3 Provider Handshake
- * Supports all 9 major Web3 wallet platforms:
- * 1. SafePal (Recommended)
- * 2. Trust Wallet (Popular)
- * 3. MetaMask (EVM Standard)
- * 4. Binance Web3 Wallet (Exchange Web3)
- * 5. OKX Wallet (Multi-Chain)
- * 6. Bitget Wallet (BitKeep)
- * 7. TokenPocket (DeFi Native)
- * 8. Coinbase Wallet (Global)
- * 9. WalletConnect / Other
+ * NEVORA Web3 & Multi-Platform Integration Engine (v2.0 Clean Architecture)
+ * - Rock-solid BSC BEP-20 USDT Support
+ * - Static Network Ethers v6 Integration (No background eth_blockNumber fetch failures)
+ * - Multi-Endpoint RPC Failover Pool
+ * - Smart In-App DApp Browser & Extension Detection
+ * - App-Switch Resilient WalletConnect v2 Lifecycle & Direct HTTPS Tx Polling
  */
 
 const NevoraWeb3 = (function () {
-    // Inject responsive modal styling dynamically
+    'use strict';
+
+    // 1. Inject responsive modal & drawer styles
     if (typeof document !== 'undefined') {
         const style = document.createElement('style');
+        style.id = 'nevora-web3-styles';
         style.textContent = `
             .nevora-wallet-modal-popup {
                 max-width: 95vw !important;
@@ -28,6 +25,25 @@ const NevoraWeb3 = (function () {
                 margin: 0 !important;
                 padding: 0 !important;
                 overflow-x: hidden !important;
+            }
+            .wallet-option-card {
+                cursor: pointer;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                border: 1.5px solid #e2e8f0;
+                background: #ffffff;
+            }
+            .wallet-option-card:hover {
+                border-color: #2563eb !important;
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(37, 99, 235, 0.12);
+            }
+            [data-bs-theme="dark"] .wallet-option-card {
+                background: #1e293b;
+                border-color: #334155;
+            }
+            [data-bs-theme="dark"] .wallet-option-card:hover {
+                border-color: #3b82f6 !important;
+                background: #243048;
             }
             @media (max-width: 767.98px) {
                 .nevora-wallet-drawer-popup {
@@ -62,32 +78,29 @@ const NevoraWeb3 = (function () {
         document.head.appendChild(style);
     }
 
-    // Reown / WalletConnect Project ID & Core BSC Configuration
+    // 2. Constants & Network Configuration
     const REOWN_PROJECT_ID = '392a8f68970ccad5608b6d43cc04cc8c';
+    const BSC_CHAIN_ID = 56;
+    const BSC_CHAIN_ID_HEX = '0x38';
+    const BSC_NAME = 'BNB Smart Chain';
+    const USDT_CONTRACT_ADDRESS = '0x55d398326f99059fF775485246999027B3197955';
+    const BLOCK_EXPLORER = 'https://bscscan.com';
 
-    const state = {
-        chainId: 56, // BSC Mainnet
-        chainIdHex: '0x38',
-        chainName: 'BNB Smart Chain',
-        rpcUrl: 'https://binance.llamarpc.com',
-        fallbackRpcUrls: [
-            'https://binance.llamarpc.com',
-            'https://bsc-dataseed1.binance.org',
-            'https://rpc.ankr.com/bsc',
-            'https://bsc-dataseed.binance.org'
-        ],
-        blockExplorer: 'https://bscscan.com',
-        usdtContractAddress: '0x55d398326f99059fF775485246999027B3197955',
-        connectedAddress: null,
-        connectedPlatform: null,
-        connectedPlatformId: null,
-        provider: null,
-        signer: null,
-        activeWCProvider: null,
-        isWalletConnect: false,
-    };
+    // Tier-1 Public BSC RPC Endpoints with round-robin failover
+    const BSC_RPC_ENDPOINTS = [
+        'https://bsc-dataseed.binance.org',
+        'https://bsc-dataseed1.defibit.io',
+        'https://bsc-dataseed1.ninicoin.io',
+        'https://rpc.ankr.com/bsc',
+        'https://binance.llamarpc.com'
+    ];
 
-    // Minimal BEP-20 ABI
+    // Static Ethers Network object locks chainId to 56 to suppress unnecessary eth_blockNumber calls
+    const BSC_STATIC_NETWORK = (typeof ethers !== 'undefined' && ethers.Network)
+        ? ethers.Network.from({ chainId: BSC_CHAIN_ID, name: 'binance' })
+        : null;
+
+    // BEP-20 Standard Interface
     const BEP20_ABI = [
         "function name() view returns (string)",
         "function symbol() view returns (string)",
@@ -97,7 +110,21 @@ const NevoraWeb3 = (function () {
         "event Transfer(address indexed from, address indexed to, uint256 value)"
     ];
 
-    // EIP-6963 Standard Injected Provider Discovery Store
+    // Engine Internal State
+    const state = {
+        connectedAddress: null,
+        connectedPlatform: null,
+        connectedPlatformId: null,
+        provider: null,
+        signer: null,
+        activeWCProvider: null,
+        isWalletConnect: false,
+    };
+
+    let isRegistrationActive = false;
+    let wcProviderPromise = null;
+
+    // 3. EIP-6963 Standard Provider Store
     const eip6963Providers = [];
     if (typeof window !== 'undefined') {
         try {
@@ -115,9 +142,7 @@ const NevoraWeb3 = (function () {
         }
     }
 
-    /**
-     * Modular Web3 Wallet Platforms Roster (All 9 Platforms)
-     */
+    // 4. Supported Wallets Directory
     const SUPPORTED_WALLETS = [
         {
             id: 'safepal',
@@ -291,18 +316,27 @@ const NevoraWeb3 = (function () {
             badgeClass: 'bg-light text-dark border',
             accentColor: '#3b99fc',
             iconSvg: `<svg width="28" height="28" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#3B99FC"/><path d="M14 18C17.3 14.7 22.7 14.7 26 18L26.8 18.8C27 19 27 19.3 26.8 19.5L25.3 21C25.2 21.1 25 21.1 24.9 21L23.8 19.9C21.7 17.8 18.3 17.8 16.2 19.9L15.1 21C15 21.1 14.8 21.1 14.7 21L13.2 19.5C13 19.3 13 19 13.2 18.8L14 18Z" fill="white"/><path d="M28.4 20.4L29.9 21.9C30.1 22.1 30.1 22.4 29.9 22.6L23.9 28.6C23.7 28.8 23.4 28.8 23.2 28.6L19.9 25.3C19.8 25.2 19.6 25.2 19.5 25.3L16.2 28.6C16 28.8 15.7 28.8 15.5 28.6L9.5 22.6C9.3 22.4 9.3 22.1 9.5 21.9L11 20.4C11.2 20.2 11.5 20.2 11.7 20.4L15 23.7C15.1 23.8 15.3 23.8 15.4 23.7L18.7 20.4C18.9 20.2 19.2 20.2 19.4 20.4L22.7 23.7C22.8 23.8 23 23.8 23.1 23.7L26.4 20.4C26.6 20.2 26.9 20.2 27.1 20.4L28.4 20.4Z" fill="white"/></svg>`,
-            getProvider: () => null, // Forces WalletConnect v2
+            getProvider: () => null,
         }
     ];
 
+    // 5. Environment & Mobile Utilities
     function isMobileDevice() {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 
-    /**
-     * Non-destructive mobile app launcher using custom URI schemes.
-     * Triggers the OS app-switch without navigating the current web page away to external websites.
-     */
+    function isInAppWalletBrowser() {
+        if (typeof window === 'undefined') return false;
+        if (!isMobileDevice()) return false;
+        return !!(
+            window.safepalProvider ||
+            window.safepal ||
+            window.trustwallet ||
+            window.tokenpocket ||
+            (window.ethereum && (window.ethereum.isSafePal || window.ethereum.isTrust || window.ethereum.isMetaMask || window.ethereum.isTokenPocket))
+        );
+    }
+
     function launchNativeScheme(schemeUrl) {
         if (!schemeUrl || typeof window === 'undefined') return;
         try {
@@ -316,16 +350,12 @@ const NevoraWeb3 = (function () {
                 if (document.body.contains(a)) {
                     document.body.removeChild(a);
                 }
-            }, 1000);
+            }, 800);
         } catch (e) {
-            console.warn('Native scheme trigger notice:', e);
+            console.debug('Native scheme trigger notice:', e);
         }
     }
 
-    /**
-     * Map platform id to verified native & universal WalletConnect URI schemes
-     * Verified against the official WalletConnect Explorer Registry
-     */
     function getWalletDeepLinks(walletId, uri) {
         const encodedUri = encodeURIComponent(uri);
         switch (walletId) {
@@ -333,71 +363,59 @@ const NevoraWeb3 = (function () {
                 return {
                     universal: `https://link.safepal.io/wc?uri=${encodedUri}`,
                     native: `safepalwallet://wc?uri=${encodedUri}`,
-                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=safepalwallet;package=io.safepal.wallet;end`,
                     appScheme: 'safepalwallet://'
                 };
             case 'trust':
                 return {
                     universal: `https://link.trustwallet.com/wc?uri=${encodedUri}`,
                     native: `trust://wc?uri=${encodedUri}`,
-                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=trust;package=com.wallet.crypto.trustapp;end`,
                     appScheme: 'trust://'
                 };
             case 'metamask':
                 return {
                     universal: `https://metamask.app.link/wc?uri=${encodedUri}`,
                     native: `metamask://wc?uri=${encodedUri}`,
-                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=metamask;package=io.metamask;end`,
                     appScheme: 'metamask://'
                 };
             case 'tokenpocket':
                 return {
                     universal: `https://tokenpocket.vip/app?uri=${encodedUri}`,
                     native: `tpoutside://wc?uri=${encodedUri}`,
-                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=tpoutside;package=vip.mytokenpocket;end`,
                     appScheme: 'tpoutside://'
                 };
             case 'bitget':
                 return {
                     universal: `https://bkapp.vip/wc?uri=${encodedUri}`,
                     native: `bitkeep://wc?uri=${encodedUri}`,
-                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=bitkeep;package=com.bitkeep.wallet;end`,
                     appScheme: 'bitkeep://'
                 };
             case 'okx':
                 return {
                     universal: `https://www.okx.com/download?appendQuery=true&deeplink=${encodeURIComponent('okx://wallet/walletConnect?uri=' + uri)}`,
                     native: `okex://main/wc?uri=${encodedUri}`,
-                    intent: `intent://main/wc?uri=${encodedUri}#Intent;scheme=okex;package=com.okinc.okex.gp;end`,
                     appScheme: 'okex://main'
                 };
             case 'binance':
                 return {
                     universal: `https://app.binance.com/cedefi/wc?uri=${encodedUri}`,
                     native: `bnc://app.binance.com/cedefi/wc?uri=${encodedUri}`,
-                    intent: `intent://app.binance.com/cedefi/wc?uri=${encodedUri}#Intent;scheme=bnc;package=com.binance.dev;end`,
                     appScheme: 'bnc://app.binance.com/'
                 };
             case 'coinbase':
                 return {
                     universal: `https://go.cb-w.com/wc?uri=${encodedUri}`,
                     native: `cbwallet://wc?uri=${encodedUri}`,
-                    intent: `intent://wc?uri=${encodedUri}#Intent;scheme=cbwallet;package=org.toshi;end`,
                     appScheme: 'cbwallet://'
                 };
             default:
                 return {
                     universal: null,
                     native: `wc:${uri}`,
-                    intent: null,
                     appScheme: 'safepalwallet://'
                 };
         }
     }
 
-    /**
-     * Map platform id to native App foreground scheme (for post-connection payment authorization)
-     */
     function getWalletAppScheme(walletId) {
         switch (walletId) {
             case 'safepal': return 'safepalwallet://';
@@ -412,123 +430,108 @@ const NevoraWeb3 = (function () {
         }
     }
 
-    /**
-     * Detect which wallet platform is actively injected in the current browser window
-     */
-    function getDetectedWalletId() {
-        if (typeof window === 'undefined') return null;
-        for (const w of SUPPORTED_WALLETS) {
-            if (w.id === 'walletconnect') continue;
+    // 6. Resilient Multi-RPC Fetcher
+    async function fetchRpcWithFallback(method, params = []) {
+        let lastError = null;
+        for (const endpoint of BSC_RPC_ENDPOINTS) {
             try {
-                if (w.getProvider && w.getProvider()) {
-                    return w.id;
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: Date.now(),
+                        method,
+                        params
+                    }),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) continue;
+
+                const data = await response.json();
+                if (data && data.result !== undefined) {
+                    return data.result;
                 }
-            } catch (e) {
-                // Ignore provider query check errors
+            } catch (err) {
+                lastError = err;
             }
         }
-        if (window.ethereum) return 'safepal';
-        return null;
+        throw (lastError || new Error('All BSC RPC endpoints unreachable. Please check your internet connection.'));
     }
 
-    /**
-     * Resolve injected provider with graceful fallback
-     */
-    function resolveProvider(walletId = null) {
-        if (typeof window === 'undefined') return null;
-
-        if (walletId && walletId !== 'walletconnect') {
-            const wallet = SUPPORTED_WALLETS.find(w => w.id === walletId);
-            if (wallet && wallet.getProvider) {
-                try {
-                    const prov = wallet.getProvider();
-                    if (prov) return prov;
-                } catch (e) {
-                    console.debug('Provider resolve for', walletId, 'notice:', e);
-                }
-            }
-        }
-
-        // Auto-resolve: Scan each wallet in priority order (SafePal is first)
-        for (const w of SUPPORTED_WALLETS) {
-            if (w.id === 'walletconnect') continue;
-            try {
-                if (w.getProvider) {
-                    const prov = w.getProvider();
-                    if (prov) return prov;
-                }
-            } catch (e) {
-                // Ignore query check errors
-            }
-        }
-
-        // Fallback: window.ethereum
-        if (window.ethereum) {
-            if (window.ethereum.providers?.length) {
-                const sp = window.ethereum.providers.find(p => p.isSafePal);
-                if (sp) return sp;
-                return window.ethereum.providers[0];
-            }
-            return window.ethereum;
-        }
-
-        return null;
-    }
-
-    /**
-     * Switch network to BSC Mainnet (Chain ID 56)
-     */
-    async function checkAndSwitchNetwork(provider) {
+    // Direct, light-speed USDT Balance check over HTTPS (No eth_blockNumber overhead!)
+    async function getUsdtBalance(walletAddress) {
+        if (!walletAddress) return 0;
         try {
-            const currentChainId = await provider.request({ method: 'eth_chainId' });
-            if (parseInt(currentChainId, 16) !== state.chainId) {
-                try {
-                    await provider.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: state.chainIdHex }]
-                    });
-                } catch (switchError) {
-                    if (switchError.code === 4902) {
-                        await provider.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: state.chainIdHex,
-                                chainName: state.chainName,
-                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                                rpcUrls: [state.rpcUrl],
-                                blockExplorerUrls: [state.blockExplorer]
-                            }]
-                        });
-                    } else {
-                        throw switchError;
+            // balanceOf(address) selector: 0x70a08231
+            const cleanAddr = walletAddress.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+            const callData = '0x70a08231' + cleanAddr;
+
+            const hexResult = await fetchRpcWithFallback('eth_call', [
+                { to: USDT_CONTRACT_ADDRESS, data: callData },
+                'latest'
+            ]);
+
+            if (hexResult && hexResult !== '0x') {
+                const rawBigInt = BigInt(hexResult);
+                // 18 decimals on BEP-20 USDT
+                const whole = rawBigInt / 1000000000000000000n;
+                const remainder = rawBigInt % 1000000000000000000n;
+                const balanceFloat = Number(whole) + Number(remainder) / 1e18;
+                return balanceFloat;
+            }
+            return 0;
+        } catch (e) {
+            console.warn('Direct USDT balance query note:', e.message);
+            return 0;
+        }
+    }
+
+    // Direct On-Chain Transaction Receipt Poller (Independent of mobile WebSocket)
+    async function pollTransactionReceipt(txHash, maxSeconds = 45) {
+        const startTime = Date.now();
+        while ((Date.now() - startTime) < (maxSeconds * 1000)) {
+            try {
+                const receipt = await fetchRpcWithFallback('eth_getTransactionReceipt', [txHash]);
+                if (receipt && receipt.blockNumber) {
+                    if (receipt.status === '0x1') {
+                        return { success: true, receipt };
+                    } else if (receipt.status === '0x0') {
+                        return { success: false, reason: 'Transaction failed or was reverted on BSC.' };
                     }
                 }
+            } catch (pollErr) {
+                // Silently wait for next polling round
             }
-        } catch (error) {
-            console.warn('Network switch check warning:', error);
+            await new Promise(r => setTimeout(r, 1500));
         }
+        return { success: false, timeout: true };
     }
 
-    // WalletConnect EthereumProvider Singleton Instance
-    let wcProviderPromise = null;
-
+    // 7. WalletConnect v2 Initialization
     async function getWalletConnectProvider() {
         if (wcProviderPromise) {
             return await wcProviderPromise;
         }
 
-        const EthereumProviderClass = window.WalletConnectEthereumProvider || window.NevoraWCBundle?.EthereumProvider;
-        if (!EthereumProviderClass) {
+        const ProviderClass = window.WalletConnectEthereumProvider || window.NevoraWCBundle?.EthereumProvider;
+        if (!ProviderClass) {
             throw new Error('WalletConnect provider library is not loaded. Please refresh the page.');
         }
 
-        wcProviderPromise = EthereumProviderClass.init({
+        wcProviderPromise = ProviderClass.init({
             projectId: REOWN_PROJECT_ID,
-            chains: [state.chainId],
-            optionalChains: [state.chainId],
-            showQrModal: false, // We control high-performance native deep links & QR
+            chains: [BSC_CHAIN_ID],
+            optionalChains: [BSC_CHAIN_ID],
+            showQrModal: false,
             rpcMap: {
-                [state.chainId]: state.rpcUrl
+                [BSC_CHAIN_ID]: BSC_RPC_ENDPOINTS[0]
             },
             metadata: {
                 name: 'NEVORA',
@@ -545,9 +548,7 @@ const NevoraWeb3 = (function () {
         return await wcProviderPromise;
     }
 
-    /**
-     * Show QR Code Modal for desktop or fallback scan
-     */
+    // QR Code Modal for Desktop
     async function showQRCodeModal(uri, walletName = 'Web3 Wallet') {
         let qrDataUrl = '';
         const qrLib = window.NevoraQRCode || window.QRCode;
@@ -555,7 +556,7 @@ const NevoraWeb3 = (function () {
             try {
                 qrDataUrl = await qrLib.toDataURL(uri, { width: 260, margin: 1 });
             } catch (e) {
-                console.warn('QR code render error:', e);
+                console.warn('QR code render notice:', e);
             }
         }
 
@@ -582,29 +583,85 @@ const NevoraWeb3 = (function () {
         });
     }
 
-    /**
-     * Connect via genuine WalletConnect v2 protocol
-     */
+    // 8. Connection Handlers
+    async function ensureBscNetwork(provider) {
+        if (!provider || !provider.request) return;
+        try {
+            await provider.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: BSC_CHAIN_ID_HEX }]
+            });
+        } catch (switchError) {
+            // 4902: Unrecognized chain
+            if (switchError.code === 4902 || switchError.code === -32603) {
+                try {
+                    await provider.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: BSC_CHAIN_ID_HEX,
+                            chainName: BSC_NAME,
+                            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                            rpcUrls: [BSC_RPC_ENDPOINTS[0]],
+                            blockExplorerUrls: [BLOCK_EXPLORER]
+                        }]
+                    });
+                } catch (addErr) {
+                    console.debug('wallet_addEthereumChain notice:', addErr);
+                }
+            }
+        }
+    }
+
+    // Connect via direct injected provider (Fastest, 0ms, used for in-app browsers & desktop extensions)
+    async function connectViaInjected(wallet) {
+        const provider = wallet.getProvider();
+        if (!provider) {
+            throw new Error(`${wallet.name} extension or in-app provider is not detected.`);
+        }
+
+        await ensureBscNetwork(provider);
+
+        const accounts = await provider.request({ method: 'eth_requestAccounts' });
+        if (!accounts || accounts.length === 0) {
+            throw new Error(`No accounts authorized in ${wallet.name}.`);
+        }
+
+        const address = accounts[0].toLowerCase();
+        state.connectedAddress = address;
+        state.connectedPlatform = wallet.name;
+        state.connectedPlatformId = wallet.id;
+        state.isWalletConnect = false;
+        state.activeWCProvider = null;
+
+        if (window.ethers) {
+            // Static Network locks chain 56 and suppresses internal eth_blockNumber queries!
+            state.provider = new ethers.BrowserProvider(provider, BSC_STATIC_NETWORK, { staticNetwork: true });
+            state.signer = await state.provider.getSigner();
+        }
+
+        localStorage.setItem('nevora_connected_platform', wallet.name);
+        localStorage.setItem('nevora_connected_platform_id', wallet.id);
+        localStorage.setItem('nevora_connected_address', address);
+
+        updateRegistrationTopBar(address, wallet.name, wallet.iconSvg);
+
+        return { address, wallet, provider, isWalletConnect: false };
+    }
+
+    // Connect via WalletConnect v2
     async function connectViaWalletConnect(walletId = 'safepal', forceFresh = false) {
         const wallet = SUPPORTED_WALLETS.find(w => w.id === walletId) || SUPPORTED_WALLETS[0];
         const wc = await getWalletConnectProvider();
 
-        const isRegistrationPage = typeof document !== 'undefined' && (
-            document.getElementById('register-form') !== null ||
-            window.location.pathname.includes('/register')
-        );
-
-        // Force a fresh pairing session on the registration page, on user platform switch, or if forceFresh is requested
-        if (wc.session && (forceFresh || isRegistrationPage || (state.connectedPlatformId && state.connectedPlatformId !== wallet.id))) {
+        // Disconnect only if platform switched or explicitly forced
+        if (wc.session && (forceFresh || (state.connectedPlatformId && state.connectedPlatformId !== wallet.id))) {
             try {
                 await wc.disconnect();
-            } catch (dcErr) {
-                console.debug('WC session disconnect notice:', dcErr);
-            }
+            } catch (e) {}
         }
 
-        // If existing session is already active AND valid for this platform outside the registration page (e.g. member dashboard)
-        if (wc.session && wc.accounts && wc.accounts.length > 0 && !isRegistrationPage) {
+        // Reuse active session if valid
+        if (wc.session && wc.accounts && wc.accounts.length > 0 && !forceFresh) {
             const address = wc.accounts[0].toLowerCase();
             state.connectedAddress = address;
             state.connectedPlatform = wallet.name;
@@ -613,7 +670,7 @@ const NevoraWeb3 = (function () {
             state.isWalletConnect = true;
 
             if (window.ethers) {
-                state.provider = new ethers.BrowserProvider(wc);
+                state.provider = new ethers.BrowserProvider(wc, BSC_STATIC_NETWORK, { staticNetwork: true });
                 state.signer = await state.provider.getSigner();
             }
 
@@ -622,25 +679,16 @@ const NevoraWeb3 = (function () {
             localStorage.setItem('nevora_connected_address', address);
 
             updateRegistrationTopBar(address, wallet.name, wallet.iconSvg);
-
             return { address, wallet, provider: wc, isWalletConnect: true };
         }
 
-        // Listener for display_uri to launch mobile app or show QR
         const uriHandler = (uri) => {
-            console.log('WalletConnect session URI generated for', wallet.name, uri);
-            const isMobile = isMobileDevice();
-
-            if (isMobile) {
+            if (isMobileDevice()) {
                 const links = getWalletDeepLinks(wallet.id, uri);
-                // Prefer direct native app scheme on mobile (e.g. safepalwallet://wc?uri=...)
-                // to avoid mobile browsers treating universal HTTPS links as website navigation!
-                const primaryNativeUrl = links.native || links.universal;
+                const primaryUrl = links.native || links.universal;
 
-                // Non-destructively trigger the native app
-                launchNativeScheme(primaryNativeUrl);
+                launchNativeScheme(primaryUrl);
 
-                // Display prompt in Chrome while user approves in wallet
                 Swal.fire({
                     title: `Connecting to ${wallet.name}...`,
                     html: `
@@ -650,7 +698,7 @@ const NevoraWeb3 = (function () {
                         <p class="font-13 text-muted mb-2">We opened <strong>${wallet.name}</strong> on your phone.</p>
                         <p class="font-12 text-muted mb-3">Please unlock your app and tap <strong>Connect</strong>.</p>
                         <div class="d-flex flex-column gap-2">
-                            <a href="${primaryNativeUrl}" class="btn btn-primary btn-sm rounded-pill py-2 fw-semibold shadow-sm d-flex align-items-center justify-content-center gap-1.5" id="btn-open-wallet-primary">
+                            <a href="${primaryUrl}" class="btn btn-primary btn-sm rounded-pill py-2 fw-semibold shadow-sm d-flex align-items-center justify-content-center gap-1.5" id="btn-open-wallet-primary">
                                 <i class="fa-solid fa-arrow-up-right-from-square"></i> Open ${wallet.name} App
                             </a>
                             <button type="button" class="btn btn-light btn-sm rounded-pill py-1.5 text-muted border font-11" id="btn-show-wc-qr">
@@ -662,9 +710,7 @@ const NevoraWeb3 = (function () {
                     showCancelButton: true,
                     cancelButtonText: 'Cancel',
                     allowOutsideClick: false,
-                    customClass: {
-                        popup: 'rounded-4 p-3 shadow-lg'
-                    },
+                    customClass: { popup: 'rounded-4 p-3 shadow-lg' },
                     didOpen: () => {
                         const qrBtn = document.getElementById('btn-show-wc-qr');
                         if (qrBtn) {
@@ -675,7 +721,6 @@ const NevoraWeb3 = (function () {
                     }
                 });
             } else {
-                // Desktop: Show QR code modal
                 showQRCodeModal(uri, wallet.name);
             }
         };
@@ -683,7 +728,6 @@ const NevoraWeb3 = (function () {
         wc.on('display_uri', uriHandler);
 
         try {
-            // Wait for user to approve session in SafePal / Trust / etc.
             await wc.connect();
 
             if (!wc.accounts || wc.accounts.length === 0) {
@@ -698,7 +742,7 @@ const NevoraWeb3 = (function () {
             state.isWalletConnect = true;
 
             if (window.ethers) {
-                state.provider = new ethers.BrowserProvider(wc);
+                state.provider = new ethers.BrowserProvider(wc, BSC_STATIC_NETWORK, { staticNetwork: true });
                 state.signer = await state.provider.getSigner();
             }
 
@@ -707,82 +751,35 @@ const NevoraWeb3 = (function () {
             localStorage.setItem('nevora_connected_address', address);
 
             updateRegistrationTopBar(address, wallet.name, wallet.iconSvg);
-
-            wc.removeListener('display_uri', uriHandler);
-            Swal.close();
 
             return { address, wallet, provider: wc, isWalletConnect: true };
-        } catch (err) {
+        } finally {
             wc.removeListener('display_uri', uriHandler);
-            throw err;
         }
     }
 
-    /**
-     * Connect to wallet directly by platform ID
-     * Gracefully routes to Injected Web3 (if inside wallet DApp browser) or WalletConnect v2 (if mobile Chrome/desktop)
-     */
-    async function connectByPlatform(walletId = null, forceFresh = false) {
-        const detectedId = getDetectedWalletId();
-        const effectiveId = walletId || detectedId || 'safepal';
-        const wallet = SUPPORTED_WALLETS.find(w => w.id === effectiveId) || SUPPORTED_WALLETS[0];
-        const injectedProvider = resolveProvider(effectiveId);
+    // Unified connect entry point
+    async function connectByPlatform(walletId = 'safepal', forceFresh = false) {
+        const wallet = SUPPORTED_WALLETS.find(w => w.id === walletId) || SUPPORTED_WALLETS[0];
 
-        // Scenario A: Injected provider present (e.g. inside SafePal DApp browser or extension)
-        if (injectedProvider && effectiveId !== 'walletconnect') {
-            let accounts = [];
-            // Attempt wallet_requestPermissions first to allow account selection / switching
-            try {
-                const permissions = await injectedProvider.request({
-                    method: 'wallet_requestPermissions',
-                    params: [{ eth_accounts: {} }]
-                });
-                const accPermission = permissions?.find(p => p.parentCapability === 'eth_accounts');
-                if (accPermission?.caveats?.[0]?.value) {
-                    accounts = accPermission.caveats[0].value;
-                }
-            } catch (permErr) {
-                console.debug('wallet_requestPermissions notice (falling back to eth_requestAccounts):', permErr);
-            }
-
-            if (!accounts || accounts.length === 0) {
-                accounts = await injectedProvider.request({ method: 'eth_requestAccounts' });
-            }
-
-            if (!accounts || accounts.length === 0) {
-                throw new Error('No accounts selected in wallet.');
-            }
-
-            const address = accounts[0].toLowerCase();
-            state.connectedAddress = address;
-            state.connectedPlatform = wallet.name;
-            state.connectedPlatformId = wallet.id;
-            state.isWalletConnect = false;
-            state.activeWCProvider = null;
-
-            await checkAndSwitchNetwork(injectedProvider);
-
-            if (window.ethers) {
-                state.provider = new ethers.BrowserProvider(injectedProvider);
-                state.signer = await state.provider.getSigner();
-            }
-
-            localStorage.setItem('nevora_connected_platform', wallet.name);
-            localStorage.setItem('nevora_connected_platform_id', wallet.id);
-            localStorage.setItem('nevora_connected_address', address);
-
-            updateRegistrationTopBar(address, wallet.name, wallet.iconSvg);
-
-            return { address, wallet, provider: injectedProvider, isWalletConnect: false };
+        // 1. If in-app wallet browser or injected provider exists, use direct injected connection
+        const injected = wallet.getProvider();
+        if (injected) {
+            return await connectViaInjected(wallet);
         }
 
-        // Scenario B: External Mobile Chrome or Desktop Browser -> Genuine WalletConnect v2
-        return await connectViaWalletConnect(effectiveId, forceFresh);
+        // 2. If inside mobile DApp browser of another wallet, allow fallback to window.ethereum
+        if (isInAppWalletBrowser() && window.ethereum) {
+            return await connectViaInjected({
+                ...wallet,
+                getProvider: () => window.ethereum
+            });
+        }
+
+        // 3. Otherwise, use WalletConnect v2
+        return await connectViaWalletConnect(wallet.id, forceFresh);
     }
 
-    /**
-     * Disconnect active wallet session
-     */
     async function disconnectWallet(clearStorage = true) {
         try {
             if (state.activeWCProvider) {
@@ -793,9 +790,7 @@ const NevoraWeb3 = (function () {
                     await wc.disconnect().catch(() => null);
                 }
             }
-        } catch (e) {
-            console.warn('WalletConnect disconnect notice:', e);
-        }
+        } catch (e) {}
 
         state.activeWCProvider = null;
         state.connectedAddress = null;
@@ -814,591 +809,142 @@ const NevoraWeb3 = (function () {
         updateRegistrationTopBar(null);
     }
 
-    /**
-     * Update the Registration Page Top Wallet Connect Bar Idle State (When Extension is detected)
-     */
-    function updateRegistrationIdleBar(walletName = null) {
-        const title = document.getElementById('top-wallet-idle-title');
-        const subtitle = document.getElementById('top-wallet-idle-subtitle');
-        const btnLabel = document.getElementById('top-wallet-btn-label');
-        if (title && walletName) {
-            title.innerHTML = `${walletName} Extension Detected <span class="badge bg-success bg-opacity-10 text-success font-10 ms-1 fw-semibold">Ready</span>`;
-        }
-        if (subtitle && walletName) {
-            subtitle.textContent = `Click Connect to link your active ${walletName} address`;
-        }
-        if (btnLabel && walletName) {
-            btnLabel.textContent = `Connect ${walletName}`;
-        }
-    }
-
-    /**
-     * Update the Registration Page Top Wallet Connect Bar (B-TITAN Authentic Flow)
-     */
-    function updateRegistrationTopBar(address, platformName = null, iconSvg = null) {
+    // 9. UI Sync & Modal Display
+    function updateRegistrationTopBar(address, platformName = 'SafePal', iconSvg = null) {
         const idleBox = document.getElementById('wallet-connect-idle');
         const activeBox = document.getElementById('wallet-connect-active');
-        const hiddenInput = document.getElementById('wallet_address');
-        const displayAddr = document.getElementById('top-wallet-address-display');
+        const addressDisplay = document.getElementById('top-wallet-address-display');
         const platformBadge = document.getElementById('top-wallet-platform-badge');
-        const iconBox = document.getElementById('top-wallet-icon-box');
+        const walletHiddenInput = document.getElementById('wallet_address');
+        const iconContainer = document.getElementById('top-wallet-icon-box');
 
         if (!address) {
             if (idleBox) idleBox.classList.remove('d-none');
             if (activeBox) activeBox.classList.add('d-none');
-            if (hiddenInput) hiddenInput.value = '';
-            const title = document.getElementById('top-wallet-idle-title');
-            const subtitle = document.getElementById('top-wallet-idle-subtitle');
-            const btnLabel = document.getElementById('top-wallet-btn-label');
-            if (title) title.textContent = 'No Wallet Connected';
-            if (subtitle) subtitle.textContent = 'Click connect to link your SafePal or Web3 wallet';
-            if (btnLabel) btnLabel.textContent = 'Connect Wallet';
+            if (walletHiddenInput) walletHiddenInput.value = '';
             return;
         }
 
-        const normalized = address.toLowerCase();
-        if (hiddenInput) hiddenInput.value = normalized;
-        if (displayAddr) {
-            displayAddr.textContent = normalized.slice(0, 6) + '...' + normalized.slice(-4);
+        const masked = address.slice(0, 6) + '...' + address.slice(-4);
+        if (addressDisplay) addressDisplay.textContent = masked;
+        if (platformBadge) platformBadge.textContent = `${platformName} Linked`;
+        if (walletHiddenInput) walletHiddenInput.value = address.toLowerCase();
+
+        if (iconContainer && iconSvg) {
+            iconContainer.innerHTML = iconSvg;
         }
-        if (platformBadge) {
-            platformBadge.textContent = `${platformName || state.connectedPlatform || 'SafePal'} Linked`;
-        }
-        if (iconBox && iconSvg) {
-            iconBox.innerHTML = iconSvg;
-        }
+
         if (idleBox) idleBox.classList.add('d-none');
         if (activeBox) activeBox.classList.remove('d-none');
     }
 
-    /**
-     * Generate HTML for the 9-wallet selector grid (Mobile-Optimized & Responsive)
-     */
-    function renderWalletGridHtml(actionPrompt = 'Select your wallet app to link with NEVORA') {
-        let cardsHtml = '';
-
-        SUPPORTED_WALLETS.forEach(w => {
-            cardsHtml += `
-                <div class="col-6 col-md-4">
-                    <div class="wallet-option-card p-2.5 p-sm-3 rounded-4 border text-center h-100 cursor-pointer position-relative transition-all"
-                         onclick="NevoraWeb3.onWalletCardClicked('${w.id}')"
-                         data-wallet-id="${w.id}"
-                         style="background: #ffffff; cursor: pointer; transition: all 0.2s ease;">
-                        <div class="d-flex justify-content-between align-items-center mb-1 mb-sm-2">
-                            <span class="badge ${w.badgeClass} font-9 font-sm-10 px-1.5 px-sm-2 py-0.5 rounded-pill">${w.badge}</span>
-                            <i class="fa-solid fa-chevron-right font-9 font-sm-10 text-muted opacity-50"></i>
-                        </div>
-                        <div class="wallet-icon-box mb-1.5 mb-sm-2 d-flex align-items-center justify-content-center mx-auto" style="width: 44px; height: 44px;">
-                            ${w.iconSvg}
-                        </div>
-                        <h6 class="fw-bold mb-0 text-dark font-13 font-sm-14 text-truncate">${w.name}</h6>
-                        <small class="text-muted font-11 d-block mt-0.5 text-truncate">${w.tagline}</small>
-                    </div>
-                </div>
-            `;
-        });
-
-        return `
-            <div class="px-2 py-1">
-                <p class="text-muted font-12 mb-3 text-center">${actionPrompt}</p>
-                <div class="row g-2.5 text-start" id="wallet-selector-grid">
-                    ${cardsHtml}
-                </div>
-                <div class="mt-3 text-center">
-                    <small class="text-muted font-11">
-                        <i class="fa-solid fa-shield-halved text-primary me-1"></i>
-                        Encrypted BSC BEP-20 Web3 Connection. No private keys are ever shared.
-                    </small>
-                </div>
-            </div>
-        `;
-    }
-
-    // Modal Callback Holder
-    let currentModalCallback = null;
-
-    /**
-     * Show the All-Platforms B TITAN Wallet Selector Modal / Drawer
-     */
     function showWalletModal(options = {}) {
         const title = options.title || 'Connect Web3 Wallet';
         const subtitle = options.subtitle || 'Select your wallet app to link with NEVORA';
-        currentModalCallback = options.onSelect;
-        const isMobile = window.innerWidth < 768;
 
-        Swal.fire({
-            title: `
-                <div class="w-100">
-                    ${isMobile ? '<div class="mx-auto bg-secondary bg-opacity-25 rounded-pill mb-2" style="width: 42px; height: 4px;"></div>' : ''}
-                    <div class="d-flex align-items-center justify-content-between px-1">
-                        <span class="fw-bold text-dark font-16 font-sm-18">${title}</span>
-                    </div>
-                </div>
-            `,
-            html: renderWalletGridHtml(subtitle),
-            showConfirmButton: false,
-            showCloseButton: true,
-            position: isMobile ? 'bottom' : 'center',
-            width: isMobile ? '100%' : '580px',
-            customClass: {
-                popup: isMobile 
-                    ? 'rounded-top-4 p-3 shadow-lg border-0 nevora-wallet-drawer-popup' 
-                    : 'rounded-4 p-3.5 p-sm-4 shadow-lg border nevora-wallet-modal-popup',
-                htmlContainer: 'm-0 p-0 overflow-hidden',
-            }
-        });
-    }
+        const isMobile = isMobileDevice();
+        const popupClass = isMobile ? 'nevora-wallet-drawer-popup' : 'nevora-wallet-modal-popup';
+        const position = isMobile ? 'bottom' : 'center';
 
-    /**
-     * Handle Card Click from Modal
-     */
-    async function onWalletCardClicked(walletId) {
-        const wallet = SUPPORTED_WALLETS.find(w => w.id === walletId) || SUPPORTED_WALLETS[0];
-
-        // Visual feedback on card
-        const card = document.querySelector(`[data-wallet-id="${walletId}"]`);
-        if (card) {
-            card.style.borderColor = '#2563eb';
-            card.style.backgroundColor = 'rgba(37, 99, 235, 0.08)';
-        }
-
-        if (currentModalCallback) {
-            currentModalCallback(walletId, wallet);
-            return;
-        }
-
-        // Default behavior: connect & notify
-        Swal.fire({
-            title: `Connecting to ${wallet.name}...`,
-            html: `
-                <div class="my-3 text-center">
-                    <div class="spinner-border text-primary" role="status" style="width: 2.8rem; height: 2.8rem;"></div>
-                </div>
-                <p class="font-13 text-muted mb-2">Please approve the connection in <strong>${wallet.name}</strong>.</p>
-                <small class="text-muted font-11"><i class="fa-solid fa-fingerprint me-1"></i> Authorize address link on BNB Smart Chain</small>
-            `,
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            showCancelButton: true,
-            cancelButtonText: 'Cancel',
-        });
-
-        try {
-            const res = await connectByPlatform(walletId);
-            if (res && res.address) {
-                Swal.close();
-                updateRegistrationTopBar(res.address, wallet.name, wallet.iconSvg);
-                if (typeof toastr !== 'undefined') {
-                    toastr.success(`${wallet.name} connected successfully!`);
-                }
-            }
-        } catch (e) {
-            if (e.code === 4001 || e.code === 'ACTION_REJECTED' || e.message?.includes('rejected') || e.message?.includes('denied')) {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Connection Cancelled',
-                    text: `You cancelled the connection request in ${wallet.name}.`,
-                    confirmButtonText: 'OK'
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Connection Failed',
-                    text: e.message || `Could not connect to ${wallet.name}.`,
-                    confirmButtonText: 'Try Again'
-                });
-            }
-        }
-    }
-
-    /**
-     * 1-Click Multi-Wallet Payment Flow (Dashboard Activation)
-     */
-    async function openPaymentModal(slotNumber = 1) {
-        try {
-            // 1. Fetch beneficiary routing info from Laravel backend
-            Swal.fire({
-                title: 'Resolving Payment Route...',
-                html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Calculating 3-matrix eligible beneficiary...</p>',
-                allowOutsideClick: false,
-                showConfirmButton: false,
-            });
-
-            const routeRes = await fetch(`/member/payment-route-info?slot_number=${slotNumber}`, {
-                headers: { 'Accept': 'application/json' }
-            });
-            const routeData = await routeRes.json();
-
-            if (!routeData.status) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Payment Route Error',
-                    text: routeData.message || 'Could not resolve payee route.',
-                });
-                return;
-            }
-
-            const payeeAddress = routeData.payee_address;
-            const payeeName = routeData.payee_name || 'Eligible Beneficiary';
-            const payeeMemberId = routeData.payee_member_id || 'COMPANY01';
-            const payeeMasked = routeData.payee_masked_address || (payeeAddress ? (payeeAddress.slice(0, 6) + '...' + payeeAddress.slice(-4)) : '-');
-            const amountUsdt = routeData.amount;
-            const amountWei = BigInt(routeData.amount_wei);
-
-            // 2. Display B TITAN Multi-Wallet Payment Modal
-            const isAlreadyConnected = !!state.connectedAddress;
-            const connectedWalletName = state.connectedPlatform || 'Connected Wallet';
-
-            let connectedPayBtn = '';
-            if (isAlreadyConnected) {
-                connectedPayBtn = `
-                    <div class="p-3 rounded-4 bg-success bg-opacity-10 border border-success border-opacity-25 mb-3 text-start">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <span class="badge bg-success text-white font-11 px-2.5 py-1 rounded-pill">
-                                <i class="fa-solid fa-circle-check me-1"></i> ${connectedWalletName} Ready
+        const cardsHtml = SUPPORTED_WALLETS.map(w => {
+            const hasInjected = !!w.getProvider();
+            return `
+                <div class="col-6 col-sm-4">
+                    <div class="wallet-option-card rounded-4 p-2.5 text-center h-100 d-flex flex-column align-items-center justify-content-between position-relative" data-wallet-id="${w.id}">
+                        ${hasInjected ? `
+                            <span class="position-absolute top-0 end-0 translate-middle-y me-2 badge bg-success text-white font-9 px-1.5 py-0.5 rounded-pill shadow-xs">
+                                Ready
                             </span>
-                            <span class="font-monospace font-11 text-muted">${state.connectedAddress.slice(0, 6)}...${state.connectedAddress.slice(-4)}</span>
+                        ` : ''}
+                        <div class="wallet-icon-box rounded-circle shadow-xs d-flex align-items-center justify-content-center mb-1.5" style="width: 44px; height: 44px; background: rgba(0,0,0,0.03);">
+                            ${w.iconSvg}
                         </div>
-                        <button type="button" class="btn btn-success w-100 py-2.5 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
-                                onclick="NevoraWeb3.executeTransfer('${payeeAddress}', '${amountWei}', ${slotNumber}, '${payeeName}', '${payeeMemberId}', '${amountUsdt}')">
-                            <i class="fa-solid fa-bolt text-warning"></i>
-                            <span>Authorize $${parseFloat(amountUsdt).toFixed(2)} USDT with ${connectedWalletName}</span>
-                        </button>
-                    </div>
-                    <div class="position-relative text-center my-3">
-                        <hr class="border-secondary border-opacity-25 my-0">
-                        <span class="position-absolute top-50 start-50 translate-middle bg-white px-3 font-11 text-muted fw-semibold text-uppercase">Or Choose Another Platform</span>
-                    </div>
-                `;
-            }
-
-            const headerSummaryHtml = `
-                <div class="p-3 bg-light rounded-4 text-start mb-3 border">
-                    <div class="d-flex align-items-center justify-content-between p-2 mb-2 rounded-3 bg-primary bg-opacity-10 border border-primary border-opacity-25">
-                        <div>
-                            <span class="text-muted font-10 text-uppercase d-block fw-semibold">Slot ${slotNumber} Activation</span>
-                            <h5 class="fw-bold text-primary mb-0 font-16">$${parseFloat(amountUsdt).toFixed(2)} <span class="font-12 fw-normal">USDT (BEP-20)</span></h5>
-                        </div>
-                        <span class="badge bg-primary text-white font-11 px-2.5 py-1 rounded-pill">BNB Smart Chain</span>
-                    </div>
-                    <div class="p-2.5 bg-white rounded-3 border">
-                        <div class="d-flex justify-content-between font-12 mb-1 pb-1 border-bottom border-light">
-                            <span class="text-muted">Payee Member ID:</span>
-                            <span class="fw-bold font-monospace text-primary">${payeeMemberId}</span>
-                        </div>
-                        <div class="d-flex justify-content-between font-12">
-                            <span class="text-muted">Payee Wallet:</span>
-                            <span class="fw-bold font-monospace text-dark">${payeeMasked}</span>
+                        <div class="w-100">
+                            <span class="font-12 fw-bold text-dark d-block text-truncate mb-0.5">${w.name}</span>
+                            <span class="badge ${w.badgeClass || 'bg-light text-muted'} font-9 px-1.5 py-0.5 rounded-pill mb-1 d-inline-block">
+                                ${w.badge || 'BEP-20'}
+                            </span>
                         </div>
                     </div>
                 </div>
             `;
+        }).join('');
 
-            const isPaymentModalMobile = window.innerWidth < 640;
-            Swal.fire({
-                title: `<span class="fw-bold text-dark font-16 font-sm-18">Pay $${parseFloat(amountUsdt).toFixed(2)} USDT to Activate</span>`,
-                html: `
-                    ${headerSummaryHtml}
-                    ${connectedPayBtn}
-                    ${renderWalletGridHtml('Select your wallet app to authorize payment')}
-                `,
-                showConfirmButton: false,
-                showCloseButton: true,
-                width: isPaymentModalMobile ? '94%' : '640px',
-                customClass: {
-                    popup: 'rounded-4 p-2.5 p-sm-4 shadow-lg border nevora-wallet-modal-popup',
-                    htmlContainer: 'm-0 p-0 overflow-hidden',
-                }
-            });
-
-            // Set modal callback to execute transfer after connecting chosen wallet
-            currentModalCallback = async (walletId, wallet) => {
-                try {
-                    Swal.fire({
-                        title: `Connecting ${wallet.name}...`,
-                        html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Authorizing wallet for payment...</p>',
-                        allowOutsideClick: false,
-                        showConfirmButton: false,
-                    });
-
-                    const res = await connectByPlatform(walletId);
-                    if (res) {
-                        await executeTransfer(payeeAddress, amountWei, slotNumber, payeeName, payeeMemberId, amountUsdt);
-                    }
-                } catch (err) {
-                    if (err.code !== 4001 && err.code !== 'ACTION_REJECTED') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Wallet Connection Failed',
-                            text: err.message || 'Could not connect chosen wallet.',
+        Swal.fire({
+            title: `<span class="fw-bold font-17">${title}</span>`,
+            html: `
+                <p class="text-muted font-12 mb-3">${subtitle}</p>
+                <div class="row g-2 text-start" id="wallet-modal-grid">
+                    ${cardsHtml}
+                </div>
+                <div class="mt-3 pt-2 border-top text-center">
+                    <small class="text-muted font-11">
+                        <i class="fa-solid fa-shield-halved text-success me-1"></i> Secured by BNB Smart Chain (BEP-20)
+                    </small>
+                </div>
+            `,
+            showConfirmButton: false,
+            showCloseButton: true,
+            position: position,
+            customClass: {
+                popup: `rounded-4 p-3 shadow-lg ${popupClass}`
+            },
+            didOpen: () => {
+                const grid = document.getElementById('wallet-modal-grid');
+                if (grid) {
+                    grid.querySelectorAll('.wallet-option-card').forEach(card => {
+                        card.addEventListener('click', async () => {
+                            const walletId = card.getAttribute('data-wallet-id');
+                            const wallet = SUPPORTED_WALLETS.find(w => w.id === walletId);
+                            Swal.close();
+                            if (typeof options.onSelect === 'function') {
+                                options.onSelect(walletId, wallet);
+                            } else {
+                                await connectByPlatform(walletId);
+                            }
                         });
-                    }
+                    });
                 }
-            };
-
-        } catch (e) {
-            console.error('Payment modal error:', e);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: e.message || 'Failed to initialize payment.',
-            });
-        }
-    }
-
-    /**
-     * Fetch user's BEP-20 USDT balance on BSC Mainnet with redundant fast RPC fallback
-     */
-    async function getUsdtBalance(address) {
-        if (!address) return 0;
-        const endpoints = state.fallbackRpcUrls || [state.rpcUrl];
-        for (const rpc of endpoints) {
-            try {
-                const bscProvider = new ethers.JsonRpcProvider(rpc);
-                const usdtContract = new ethers.Contract(state.usdtContractAddress, BEP20_ABI, bscProvider);
-                const rawBalance = await usdtContract.balanceOf(address);
-                const formatted = parseFloat(ethers.formatUnits(rawBalance, 18));
-                if (!isNaN(formatted)) return formatted;
-            } catch (e) {
-                console.debug(`USDT balance query failed on ${rpc}, trying next fallback:`, e?.message || e);
             }
-        }
-        return 0;
+        });
     }
 
-    /**
-     * Execute on-chain transfer to beneficiary (Injected or WalletConnect v2 Signer)
-     */
-    async function executeTransfer(payeeAddress, amountWei, slotNumber, payeeName, payeeMemberId, amountUsdt) {
-        const activeProvider = state.activeWCProvider || resolveProvider();
-        if (!activeProvider || !window.ethers) {
-            if (typeof toastr !== 'undefined') toastr.error('Web3 provider or Ethers.js not ready.');
-            return;
-        }
+    // 10. Atomic Pay-to-Register Flow
+    async function executePayToRegister(formInputs) {
+        if (isRegistrationActive) return;
+        isRegistrationActive = true;
 
         try {
-            // Check USDT Balance First
-            const userAddress = state.connectedAddress || (await (new ethers.BrowserProvider(activeProvider)).getSigner()).address;
-            const usdtBalance = await getUsdtBalance(userAddress);
+            let connectedAddress = state.connectedAddress;
+            let wallet = SUPPORTED_WALLETS.find(w => w.id === state.connectedPlatformId) || SUPPORTED_WALLETS[0];
 
-            if (usdtBalance < parseFloat(amountUsdt)) {
+            if (!connectedAddress) {
                 Swal.fire({
-                    icon: 'error',
-                    title: 'Insufficient Balance',
-                    html: `
-                        <div class="p-3 bg-light rounded-4 text-start mb-3 border">
-                            <div class="d-flex justify-content-between font-13 mb-1.5 pb-1 border-bottom">
-                                <span class="text-muted">Your Wallet Balance:</span>
-                                <span class="fw-bold text-danger font-monospace">$${usdtBalance.toFixed(2)} USDT</span>
-                            </div>
-                            <div class="d-flex justify-content-between font-13">
-                                <span class="text-muted">Required Amount:</span>
-                                <span class="fw-bold text-primary font-monospace">$${parseFloat(amountUsdt).toFixed(2)} USDT</span>
-                            </div>
-                        </div>
-                        <p class="font-12 text-muted mb-0">Your balance is not sufficient. Please deposit at least $${parseFloat(amountUsdt).toFixed(2)} USDT into your wallet on BNB Smart Chain and try again.</p>
-                    `,
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: '#2563eb'
+                    icon: 'warning',
+                    title: 'Wallet Not Connected',
+                    text: 'Please connect your Web3 wallet first before proceeding with payment.',
+                    confirmButtonText: 'Connect Now'
+                }).then(() => {
+                    const btn = document.getElementById('btn-top-connect-wallet');
+                    if (btn) btn.click();
                 });
                 return;
             }
 
-            const appScheme = getWalletAppScheme(state.connectedPlatformId || 'safepal');
-            const walletName = state.connectedPlatform || 'Wallet';
-
-            Swal.fire({
-                title: 'Approve in Your Wallet',
-                html: `
-                    <div class="p-3 bg-light rounded-4 text-start mb-3 border">
-                        <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
-                            <span class="text-muted">Transfer Amount:</span>
-                            <span class="fw-bold text-success font-14">$${parseFloat(amountUsdt).toFixed(2)} USDT</span>
-                        </div>
-                        <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
-                            <span class="text-muted">Payee Member ID:</span>
-                            <span class="fw-bold font-monospace text-primary">${payeeMemberId}</span>
-                        </div>
-                        <div class="d-flex justify-content-between font-12">
-                            <span class="text-muted">Network:</span>
-                            <span class="fw-bold text-dark">BNB Smart Chain (BEP-20)</span>
-                        </div>
-                    </div>
-                    <div class="d-flex align-items-center justify-content-center gap-2 text-primary font-13 fw-semibold mb-3">
-                        <i class="fa-solid fa-fingerprint fa-bounce fa-lg"></i>
-                        <span>Please authorize in ${walletName} with PIN or Fingerprint...</span>
-                    </div>
-
-                    ${isMobileDevice() && state.isWalletConnect ? `
-                        <a href="${appScheme}" class="btn btn-primary rounded-pill py-2.5 w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 text-decoration-none mb-2" id="btn-open-wallet-pay">
-                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open ${walletName} App to Authorize
-                        </a>
-                    ` : ''}
-                `,
-                allowOutsideClick: false,
-                showConfirmButton: false,
-                showCancelButton: true,
-                cancelButtonText: 'Cancel'
-            });
-
-            const browserProvider = new ethers.BrowserProvider(activeProvider);
-            const signer = await browserProvider.getSigner();
-            const usdtContract = new ethers.Contract(state.usdtContractAddress, BEP20_ABI, signer);
-
-            // Pre-configured gasLimit avoids slow estimateGas round-trips over background throttled provider
-            const txOverrides = {
-                gasLimit: 100000n
-            };
-
-            // Non-destructively prompt the native app to open on mobile
-            if (isMobileDevice() && state.isWalletConnect && appScheme) {
-                setTimeout(() => {
-                    launchNativeScheme(appScheme);
-                }, 200);
-            }
-
-            // Execute Transfer
-            const tx = await usdtContract.transfer(payeeAddress, amountWei, txOverrides);
-
-            // Show confirmation waiting screen
-            Swal.fire({
-                title: 'Confirming On BSC...',
-                html: `
-                    <div class="my-3 text-center">
-                        <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;"></div>
-                    </div>
-                    <p class="font-13 text-muted mb-2">Transaction broadcasted successfully!</p>
-                    <p class="font-monospace font-11 text-muted text-break p-2 bg-light rounded border">${tx.hash}</p>
-                    <small class="text-muted font-11"><i class="fa-solid fa-clock me-1"></i> Waiting for BSC block validation (~3 seconds)...</small>
-                `,
-                allowOutsideClick: false,
-                showConfirmButton: false,
-            });
-
-            // Wait for 1 block confirmation
-            await tx.wait(1);
-
-            // Submit TxHash to Laravel Backend
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            const trackRes = await fetch('/member/track-payment', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                },
-                body: JSON.stringify({
-                    slot_number: slotNumber,
-                    tx_hash: tx.hash
-                })
-            });
-
-            const trackData = await trackRes.json();
-
-            if (trackData.status) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Account & Slot Activated! 🎉',
-                    html: `
-                        <p class="text-muted font-13">${trackData.message}</p>
-                        <div class="p-2.5 bg-success bg-opacity-10 border border-success border-opacity-25 rounded-3 mb-3">
-                            <span class="text-success font-12 fw-bold"><i class="fa-solid fa-circle-check me-1"></i> Verified on BNB Smart Chain</span>
-                        </div>
-                    `,
-                    confirmButtonText: 'View Dashboard',
-                    confirmButtonColor: '#198754',
-                }).then(() => {
-                    window.location.reload();
-                });
-            } else {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Payment Broadcasted',
-                    text: trackData.message || 'Payment broadcasted on BSC. Please click Track Payment if activation takes a moment.',
-                    confirmButtonText: 'Refresh Page'
-                }).then(() => {
-                    window.location.reload();
-                });
-            }
-
-        } catch (err) {
-            console.error('Payment execution error:', err);
-            if (err.code === 'ACTION_REJECTED' || err.code === 4001) {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Payment Cancelled',
-                    text: 'You declined the transfer in your wallet app.',
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Payment Failed',
-                    text: err.reason || err.message || 'Could not complete transfer.',
-                });
-            }
-        }
-    }
-
-    // Concurrency lock to prevent simultaneous duplicate /register calls
-    let isRegistrationActive = false;
-
-    /**
-     * Atomic 1-Step Registration Flow:
-     * 1. Connect wallet (SafePal / etc.)
-     * 2. Pre-check USDT balance (>= 15.00 USDT)
-     * 3. Fetch payee preview for sponsor
-     * 4. Prompt user to authorize 15 USDT transfer in wallet
-     * 5. Catch tx.hash on BSC
-     * 6. POST /register with tx_hash -> User created with is_paid = true & placed in tree
-     */
-    async function executePayToRegister(formInputs, walletId = null) {
-        if (isRegistrationActive) return;
-        isRegistrationActive = true;
-        try {
-            let connectedAddress = state.connectedAddress;
-            let wallet = SUPPORTED_WALLETS.find(w => w.id === state.connectedPlatformId);
-
-            if (!connectedAddress) {
-                const detectedId = getDetectedWalletId();
-                const chosenId = walletId || detectedId || 'safepal';
-                wallet = SUPPORTED_WALLETS.find(w => w.id === chosenId) || SUPPORTED_WALLETS[0];
-
-                Swal.fire({
-                    title: `Connecting to ${wallet.name}...`,
-                    html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Please approve the connection in your wallet app.</p>',
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    showCancelButton: true,
-                    cancelButtonText: 'Cancel',
-                });
-
-                const connRes = await connectByPlatform(chosenId);
-                if (!connRes || !connRes.address) {
-                    return;
-                }
-
-                connectedAddress = connRes.address.toLowerCase();
-                wallet = connRes.wallet;
-            } else if (!wallet) {
-                wallet = SUPPORTED_WALLETS[0];
-            }
-
-            // Sync hidden wallet address and top display
+            // Sync hidden form input
             const walletHidden = document.getElementById('wallet_address');
             if (walletHidden) walletHidden.value = connectedAddress;
-            updateRegistrationTopBar(connectedAddress, wallet.name, wallet.iconSvg);
 
-            // Check USDT Balance on BSC
+            // 1. Verify USDT Balance on BSC (No eth_blockNumber calls!)
             Swal.fire({
                 title: 'Checking USDT Balance...',
-                html: '<div class="spinner-border text-primary my-3" role="status"></div><p class="font-12 text-muted">Verifying wallet balance on BNB Smart Chain...</p>',
+                html: '<div class="spinner-border text-primary my-3" role="status"></div><p class="font-12 text-muted">Querying BNB Smart Chain...</p>',
                 allowOutsideClick: false,
                 showConfirmButton: false,
             });
 
             const usdtBalance = await getUsdtBalance(connectedAddress);
 
-            // Strict check: if less than 15.00 USDT, BLOCK REGISTRATION
             if (usdtBalance < 15.0) {
                 Swal.fire({
                     icon: 'error',
@@ -1414,11 +960,8 @@ const NevoraWeb3 = (function () {
                                 <span class="fw-bold text-primary font-monospace">$15.00 USDT</span>
                             </div>
                         </div>
-                        <p class="font-12 text-muted mb-1">Your balance is not sufficient to register.</p>
-                        <p class="font-11 text-muted mb-0">Please deposit at least 15.00 USDT into your wallet on BNB Smart Chain and try again.</p>
-                        <div class="mt-2 text-danger font-11 fw-semibold">
-                            <i class="fa-solid fa-circle-exclamation me-1"></i> Your account has NOT been registered.
-                        </div>
+                        <p class="font-12 text-muted mb-1">Your balance is not sufficient to complete registration.</p>
+                        <p class="font-11 text-muted mb-0">Please deposit at least $15.00 USDT (BEP-20) and a little BNB for gas into your wallet, then try again.</p>
                     `,
                     confirmButtonText: 'OK',
                     confirmButtonColor: '#2563eb'
@@ -1426,10 +969,10 @@ const NevoraWeb3 = (function () {
                 return;
             }
 
-            // Resolve matrix payee for this registration
+            // 2. Fetch Payee Route Preview
             Swal.fire({
                 title: 'Resolving Payee Route...',
-                html: '<i class="fa-solid fa-spinner fa-spin fa-2x text-primary my-3"></i><p class="font-12 text-muted">Calculating 3-matrix eligible beneficiary...</p>',
+                html: '<div class="spinner-border text-primary my-3" role="status"></div><p class="font-12 text-muted">Calculating 3-matrix eligible beneficiary...</p>',
                 allowOutsideClick: false,
                 showConfirmButton: false,
             });
@@ -1442,9 +985,7 @@ const NevoraWeb3 = (function () {
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': csrfToken
                 },
-                body: JSON.stringify({
-                    sponsor_id: formInputs.sponsor_id
-                })
+                body: JSON.stringify({ sponsor_id: formInputs.sponsor_id })
             });
 
             const payeeData = await payeeRes.json();
@@ -1457,19 +998,19 @@ const NevoraWeb3 = (function () {
             const payeeMasked = payeeData.payee_masked_address || (payeeAddress.slice(0, 6) + '...' + payeeAddress.slice(-4));
             const amountUsdt = payeeData.amount || 15.0;
             const amountWei = BigInt(payeeData.amount_wei || '15000000000000000000');
-
             const appScheme = getWalletAppScheme(wallet.id);
 
-            // Stash registration details safely in localStorage before triggering transfer
-            const pendingRegistration = {
+            // Stash pending registration details in localStorage
+            const pendingReg = {
                 ...formInputs,
                 wallet_address: connectedAddress,
                 amount: amountUsdt,
                 payee_address: payeeAddress,
                 timestamp: Date.now()
             };
-            localStorage.setItem('nevora_pending_registration', JSON.stringify(pendingRegistration));
+            localStorage.setItem('nevora_pending_registration', JSON.stringify(pendingReg));
 
+            // 3. Prompt user for signature in wallet
             Swal.fire({
                 title: 'Authorize $15 USDT in Wallet',
                 html: `
@@ -1491,12 +1032,10 @@ const NevoraWeb3 = (function () {
                             <span class="fw-bold text-dark">BNB Smart Chain (BEP-20)</span>
                         </div>
                     </div>
-
                     <div class="d-flex align-items-center justify-content-center gap-2 text-primary font-13 fw-semibold mb-3">
                         <i class="fa-solid fa-fingerprint fa-bounce fa-lg"></i>
                         <span>Please authorize in ${wallet.name} with PIN or Fingerprint...</span>
                     </div>
-
                     ${isMobileDevice() && state.isWalletConnect ? `
                         <a href="${appScheme}" class="btn btn-primary rounded-pill py-2.5 w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 text-decoration-none mb-2" id="btn-open-wallet-pay">
                             <i class="fa-solid fa-arrow-up-right-from-square"></i> Open ${wallet.name} App to Authorize
@@ -1506,32 +1045,36 @@ const NevoraWeb3 = (function () {
                 allowOutsideClick: false,
                 showConfirmButton: false,
                 showCancelButton: true,
-                cancelButtonText: 'Cancel Registration',
+                cancelButtonText: 'Cancel Registration'
             });
 
-            const activeProvider = state.activeWCProvider || resolveProvider();
-            const browserProvider = new ethers.BrowserProvider(activeProvider);
-            const signer = await browserProvider.getSigner();
-            const usdtContract = new ethers.Contract(state.usdtContractAddress, BEP20_ABI, signer);
+            // 4. Construct Provider with Static Network (Disables internal eth_blockNumber calls!)
+            const activeRawProvider = state.activeWCProvider || (wallet.getProvider() || window.ethereum);
+            if (!activeRawProvider) {
+                throw new Error('Active Web3 wallet provider disconnected. Please reconnect your wallet.');
+            }
 
-            // Pre-configured gasLimit avoids slow estimateGas round-trips over background throttled provider
+            const browserProvider = new ethers.BrowserProvider(activeRawProvider, BSC_STATIC_NETWORK, { staticNetwork: true });
+            const signer = await browserProvider.getSigner();
+            const usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, BEP20_ABI, signer);
+
+            // Fast gas overrides avoid slow estimateGas round-trips over mobile connection
             const txOverrides = {
                 gasLimit: 100000n
             };
 
-            // Non-destructively prompt the native app to open on mobile
             if (isMobileDevice() && state.isWalletConnect && appScheme) {
-                setTimeout(() => {
-                    launchNativeScheme(appScheme);
-                }, 200);
+                setTimeout(() => { launchNativeScheme(appScheme); }, 200);
             }
 
+            // 5. Broadcast Transaction
             const tx = await usdtContract.transfer(payeeAddress, amountWei, txOverrides);
 
-            // Transaction broadcasted! Immediately attach tx_hash to pending storage
-            pendingRegistration.tx_hash = tx.hash;
-            localStorage.setItem('nevora_pending_registration', JSON.stringify(pendingRegistration));
+            // Immediately save tx_hash to safety net
+            pendingReg.tx_hash = tx.hash;
+            localStorage.setItem('nevora_pending_registration', JSON.stringify(pendingReg));
 
+            // 6. Direct HTTPS Receipt Polling (Does not hang on mobile background sleep!)
             Swal.fire({
                 title: 'Validating on BSC...',
                 html: `
@@ -1546,8 +1089,13 @@ const NevoraWeb3 = (function () {
                 showConfirmButton: false,
             });
 
-            await tx.wait(1);
+            const pollResult = await pollTransactionReceipt(tx.hash, 45);
 
+            if (!pollResult.success && !pollResult.timeout) {
+                throw new Error(pollResult.reason || 'Transaction could not be confirmed on BNB Smart Chain.');
+            }
+
+            // 7. Atomic User Registration Submission
             const regPayload = {
                 ...formInputs,
                 wallet_address: connectedAddress,
@@ -1568,97 +1116,62 @@ const NevoraWeb3 = (function () {
 
             if (regData && regData.status) {
                 localStorage.removeItem('nevora_pending_registration');
-                if (regData.is_already_logged_in) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Member Registered & Activated! 🎉',
-                        html: `
-                            <p class="text-muted font-13 mb-3">${regData.message}</p>
-                            <div class="p-3 bg-light rounded-4 border text-start mb-3 font-12">
-                                <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
-                                    <span class="text-muted">New Member ID:</span>
-                                    <span class="fw-bold font-monospace text-primary font-14">${regData.member_id}</span>
-                                </div>
-                                <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
-                                    <span class="text-muted">Full Name:</span>
-                                    <span class="fw-bold text-dark">${regData.name}</span>
-                                </div>
-                                <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
-                                    <span class="text-muted">Sponsor ID:</span>
-                                    <span class="fw-bold font-monospace text-primary">${regData.sponsor_id}</span>
-                                </div>
-                                <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
-                                    <span class="text-muted">Linked Wallet:</span>
-                                    <span class="fw-bold font-monospace text-dark">${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)}</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Status:</span>
-                                    <span class="badge bg-success text-white px-2 py-0.5 rounded-pill"><i class="fa-solid fa-circle-check me-1"></i>Slot 1 Paid & Active</span>
-                                </div>
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Registration & Activation Successful! 🎉',
+                    html: `
+                        <p class="text-muted font-13 mb-3">${regData.message || 'Your account is active on Slot 1.'}</p>
+                        <div class="p-3 bg-light rounded-4 border text-start mb-3 font-12">
+                            <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
+                                <span class="text-muted">New Member ID:</span>
+                                <span class="fw-bold font-monospace text-primary font-14">${regData.member_id}</span>
                             </div>
-                            <div class="p-2.5 bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded-3 mb-2 font-11 text-primary text-start">
-                                <i class="fa-solid fa-circle-check me-1"></i> Your current login session (<strong>${regData.current_user_name || ''}</strong>) has been preserved.
+                            <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
+                                <span class="text-muted">Full Name:</span>
+                                <span class="fw-bold text-dark">${regData.name}</span>
                             </div>
-                        `,
-                        confirmButtonText: 'View My Directs',
-                        confirmButtonColor: '#2563eb',
-                        showCancelButton: true,
-                        cancelButtonText: 'Stay Here',
-                        allowOutsideClick: false
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            window.location.href = regData.redirect || '/member/network/directs';
-                        } else {
-                            window.location.reload();
-                        }
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Registration & Activation Successful! 🎉',
-                        html: `
-                            <p class="text-muted font-13 mb-3">${regData.message}</p>
-                            <div class="p-3 bg-light rounded-4 border text-start mb-3 font-12">
-                                <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
-                                    <span class="text-muted">Your Member ID:</span>
-                                    <span class="fw-bold font-monospace text-primary font-14">${regData.member_id}</span>
-                                </div>
-                                <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
-                                    <span class="text-muted">Linked Wallet:</span>
-                                    <span class="fw-bold font-monospace text-dark">${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)}</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Status:</span>
-                                    <span class="badge bg-success text-white px-2 py-0.5 rounded-pill"><i class="fa-solid fa-circle-check me-1"></i>Slot 1 Paid & Active</span>
-                                </div>
+                            <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
+                                <span class="text-muted">Sponsor ID:</span>
+                                <span class="fw-bold font-monospace text-primary">${regData.sponsor_id}</span>
                             </div>
-                        `,
-                        confirmButtonText: 'Go to Dashboard',
-                        confirmButtonColor: '#2563eb',
-                        allowOutsideClick: false
-                    }).then(() => {
-                        window.location.href = regData.redirect || '/member/dashboard';
-                    });
-                }
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Status:</span>
+                                <span class="badge bg-success text-white px-2 py-0.5 rounded-pill"><i class="fa-solid fa-circle-check me-1"></i>Slot 1 Paid & Active</span>
+                            </div>
+                        </div>
+                    `,
+                    confirmButtonText: 'Go to Dashboard',
+                    confirmButtonColor: '#198754',
+                    allowOutsideClick: false
+                }).then(() => {
+                    window.location.href = '/member/dashboard';
+                });
             } else {
-                throw new Error(regData?.message || 'Failed to complete registration.');
+                throw new Error(regData?.message || 'Backend registration failed. Please refresh and click Complete Registration.');
             }
 
         } catch (err) {
-            console.error('Pay to register error:', err);
-            if (err.code === 'ACTION_REJECTED' || err.code === 4001) {
-                localStorage.removeItem('nevora_pending_registration');
+            console.error('Registration payment execution notice:', err);
+
+            if (err.code === 4001 || err.code === 'ACTION_REJECTED' || err.message?.includes('rejected') || err.message?.includes('denied')) {
                 Swal.fire({
                     icon: 'info',
                     title: 'Payment Cancelled',
-                    text: 'You declined the transfer in your wallet app. Your account was NOT registered.',
+                    text: 'You declined the $15 USDT transfer in your wallet app.',
                     confirmButtonText: 'OK'
                 });
             } else {
+                // Friendly error translation (Never dump raw eth_blockNumber payloads!)
+                let friendlyMsg = err.reason || err.message || 'Could not complete registration payment.';
+                if (friendlyMsg.includes('Failed to fetch') || friendlyMsg.includes('coalesce')) {
+                    friendlyMsg = 'Network connection interrupted. Please ensure your wallet is connected to BNB Smart Chain and try again.';
+                }
+
                 Swal.fire({
                     icon: 'error',
-                    title: 'Registration Error',
-                    text: err.reason || err.message || 'Could not complete registration payment.',
+                    title: 'Payment Could Not Complete',
+                    text: friendlyMsg,
                     confirmButtonText: 'Try Again'
                 });
             }
@@ -1667,191 +1180,314 @@ const NevoraWeb3 = (function () {
         }
     }
 
-    /**
-     * Safety Net: Auto-detect & complete registration if payment was broadcasted on BSC
-     * but the browser tab was closed, refreshed, or interrupted on mobile.
-     */
-    async function resumePendingRegistration() {
-        if (typeof window === 'undefined') return false;
-        if (isRegistrationActive) return false;
-        const raw = localStorage.getItem('nevora_pending_registration');
-        if (!raw) return false;
-        isRegistrationActive = true;
+    // 11. Member Dashboard Payment Modal (Slot 2-12 Upgrade)
+    async function openPaymentModal(slotNumber = 1) {
         try {
-            const pending = JSON.parse(raw);
-            // Require valid tx_hash and age < 2 hours
-            if (!pending.tx_hash || !pending.tx_hash.startsWith('0x') || (Date.now() - (pending.timestamp || 0) > 2 * 60 * 60 * 1000)) {
-                return false;
+            let connectedAddress = state.connectedAddress;
+            let wallet = SUPPORTED_WALLETS.find(w => w.id === state.connectedPlatformId) || SUPPORTED_WALLETS[0];
+
+            if (!connectedAddress) {
+                showWalletModal({
+                    title: 'Connect Wallet to Pay',
+                    subtitle: 'Choose your wallet to activate this matrix slot',
+                    onSelect: async (wId) => {
+                        await connectByPlatform(wId);
+                        openPaymentModal(slotNumber);
+                    }
+                });
+                return;
             }
 
+            // Fetch payment route info for this slot
             Swal.fire({
-                title: 'Finalizing Your Registration...',
+                title: 'Loading Slot Details...',
+                html: '<div class="spinner-border text-primary my-3" role="status"></div>',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+            });
+
+            const routeRes = await fetch(`/member/payment-route-info?slot_number=${slotNumber}`);
+            const routeData = await routeRes.json();
+
+            if (!routeData || !routeData.status) {
+                throw new Error(routeData?.message || 'Could not resolve slot payment route.');
+            }
+
+            const payeeAddress = routeData.payee_address;
+            const payeeMemberId = routeData.payee_member_id;
+            const payeeMasked = routeData.payee_masked_address || (payeeAddress.slice(0, 6) + '...' + payeeAddress.slice(-4));
+            const amountUsdt = routeData.amount;
+            const amountWei = BigInt(routeData.amount_wei || `${amountUsdt * 1e18}`);
+            const slotName = routeData.slot_name || `Slot ${slotNumber}`;
+            const appScheme = getWalletAppScheme(wallet.id);
+
+            // Check USDT Balance
+            const balance = await getUsdtBalance(connectedAddress);
+            if (balance < parseFloat(amountUsdt)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Insufficient Balance',
+                    html: `
+                        <p class="font-13 text-muted">You have <strong class="text-danger font-monospace">$${balance.toFixed(2)} USDT</strong> in your wallet, but <strong>${slotName}</strong> requires <strong class="text-primary font-monospace">$${parseFloat(amountUsdt).toFixed(2)} USDT</strong>.</p>
+                        <p class="font-11 text-muted mb-0">Please deposit USDT on BNB Smart Chain and try again.</p>
+                    `,
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+
+            // Confirm Payment
+            Swal.fire({
+                title: `Activate ${slotName}`,
+                html: `
+                    <div class="p-3 bg-light rounded-4 text-start mb-3 border">
+                        <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
+                            <span class="text-muted">Slot Fee:</span>
+                            <span class="fw-bold text-success font-14">$${parseFloat(amountUsdt).toFixed(2)} USDT</span>
+                        </div>
+                        <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
+                            <span class="text-muted">Beneficiary Member ID:</span>
+                            <span class="fw-bold font-monospace text-primary">${payeeMemberId}</span>
+                        </div>
+                        <div class="d-flex justify-content-between font-12 mb-1.5 pb-1 border-bottom">
+                            <span class="text-muted">Beneficiary Wallet:</span>
+                            <span class="fw-bold font-monospace text-dark">${payeeMasked}</span>
+                        </div>
+                        <div class="d-flex justify-content-between font-12">
+                            <span class="text-muted">Network:</span>
+                            <span class="fw-bold text-dark">BNB Smart Chain (BEP-20)</span>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-center gap-2 text-primary font-13 fw-semibold mb-3">
+                        <i class="fa-solid fa-fingerprint fa-bounce fa-lg"></i>
+                        <span>Please authorize transfer in ${wallet.name}...</span>
+                    </div>
+                    ${isMobileDevice() && state.isWalletConnect ? `
+                        <a href="${appScheme}" class="btn btn-primary rounded-pill py-2.5 w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 text-decoration-none mb-2" id="btn-open-wallet-pay">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open ${wallet.name} App to Authorize
+                        </a>
+                    ` : ''}
+                `,
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                showCancelButton: true,
+                cancelButtonText: 'Cancel'
+            });
+
+            const activeRawProvider = state.activeWCProvider || (wallet.getProvider() || window.ethereum);
+            const browserProvider = new ethers.BrowserProvider(activeRawProvider, BSC_STATIC_NETWORK, { staticNetwork: true });
+            const signer = await browserProvider.getSigner();
+            const usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, BEP20_ABI, signer);
+
+            if (isMobileDevice() && state.isWalletConnect && appScheme) {
+                setTimeout(() => { launchNativeScheme(appScheme); }, 200);
+            }
+
+            const tx = await usdtContract.transfer(payeeAddress, amountWei, { gasLimit: 100000n });
+
+            Swal.fire({
+                title: 'Validating on BSC...',
                 html: `
                     <div class="my-3 text-center">
-                        <div class="spinner-border text-primary" role="status" style="width: 2.8rem; height: 2.8rem;"></div>
+                        <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;"></div>
                     </div>
-                    <p class="font-13 text-muted mb-2">We detected your completed $15.00 USDT payment on BSC!</p>
-                    <p class="font-monospace font-11 text-muted text-break p-2 bg-light rounded border">${pending.tx_hash}</p>
-                    <small class="text-muted font-11"><i class="fa-solid fa-shield-halved text-success me-1"></i> Completing account activation...</small>
+                    <p class="font-13 text-muted mb-2">Payment broadcasted successfully!</p>
+                    <p class="font-monospace font-11 text-muted text-break p-2 bg-light rounded border">${tx.hash}</p>
+                    <small class="text-muted font-11"><i class="fa-solid fa-clock me-1"></i> Waiting for BSC block validation...</small>
                 `,
                 allowOutsideClick: false,
                 showConfirmButton: false,
             });
 
+            await pollTransactionReceipt(tx.hash, 45);
+
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            const regRes = await fetch('/register', {
+            const trackRes = await fetch('/member/track-payment', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': csrfToken
                 },
-                body: JSON.stringify(pending)
+                body: JSON.stringify({
+                    slot_number: slotNumber,
+                    tx_hash: tx.hash
+                })
             });
 
-            const regData = await regRes.json();
-            if (regData && regData.status) {
-                localStorage.removeItem('nevora_pending_registration');
+            const trackData = await trackRes.json();
+
+            if (trackData && trackData.status) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Registration & Activation Successful! 🎉',
+                    title: `${slotName} Activated! 🎉`,
                     html: `
-                        <p class="text-muted font-13 mb-3">${regData.message || 'Your account is now active.'}</p>
-                        <div class="p-3 bg-light rounded-4 border text-start mb-3 font-12">
-                            <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
-                                <span class="text-muted">Member ID:</span>
-                                <span class="fw-bold font-monospace text-primary font-14">${regData.member_id}</span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-1.5 pb-1 border-bottom">
-                                <span class="text-muted">Linked Wallet:</span>
-                                <span class="fw-bold font-monospace text-dark">${pending.wallet_address ? (pending.wallet_address.slice(0, 6) + '...' + pending.wallet_address.slice(-4)) : ''}</span>
-                            </div>
+                        <p class="text-muted font-13">${trackData.message || 'Payment confirmed on BSC.'}</p>
+                        <div class="p-2.5 bg-success bg-opacity-10 border border-success border-opacity-25 rounded-3 mb-3">
+                            <span class="text-success font-12 fw-bold"><i class="fa-solid fa-circle-check me-1"></i> Verified on BNB Smart Chain</span>
                         </div>
                     `,
-                    confirmButtonText: 'Go to Dashboard',
-                    confirmButtonColor: '#2563eb',
-                    allowOutsideClick: false
+                    confirmButtonText: 'View Dashboard',
+                    confirmButtonColor: '#198754',
                 }).then(() => {
-                    window.location.href = regData.redirect || '/member/dashboard';
+                    window.location.reload();
                 });
-                return true;
             } else {
-                console.warn('Pending registration recovery notice:', regData);
-                if (regData?.message?.includes('already been registered') || regData?.message?.includes('already linked')) {
-                    localStorage.removeItem('nevora_pending_registration');
-                }
-                Swal.close();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Payment Broadcasted',
+                    text: trackData?.message || 'Payment broadcasted on BSC. Your slot will be updated in a moment.',
+                    confirmButtonText: 'Refresh Page'
+                }).then(() => {
+                    window.location.reload();
+                });
+            }
+
+        } catch (err) {
+            console.error('Slot upgrade execution notice:', err);
+            if (err.code === 4001 || err.code === 'ACTION_REJECTED' || err.message?.includes('rejected')) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Payment Cancelled',
+                    text: 'You declined the transfer in your wallet app.',
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Payment Failed',
+                    text: err.reason || err.message || 'Could not complete transfer.',
+                });
+            }
+        }
+    }
+
+    // 12. Safety Net: Resume Interrupted Registration
+    async function resumePendingRegistration() {
+        if (typeof window === 'undefined') return false;
+        const pendingRaw = localStorage.getItem('nevora_pending_registration');
+        if (!pendingRaw) return false;
+
+        try {
+            const pending = JSON.parse(pendingRaw);
+            if (!pending || !pending.tx_hash) return false;
+
+            // Expire after 2 hours
+            if (Date.now() - pending.timestamp > 2 * 3600 * 1000) {
+                localStorage.removeItem('nevora_pending_registration');
                 return false;
             }
+
+            Swal.fire({
+                title: 'Pending Payment Detected',
+                html: `
+                    <p class="font-13 text-muted mb-2">We detected a broadcasted registration payment from your wallet!</p>
+                    <p class="font-monospace font-11 text-break p-2 bg-light rounded border text-muted">${pending.tx_hash}</p>
+                    <p class="font-12 text-muted mb-0">Would you like to finalize your account registration now?</p>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Complete Registration',
+                cancelButtonText: 'Dismiss',
+                confirmButtonColor: '#198754',
+                allowOutsideClick: false
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Finalizing Account...',
+                        html: '<div class="spinner-border text-success my-3" role="status"></div>',
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                    });
+
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const res = await fetch('/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify(pending)
+                    });
+
+                    const data = await res.json();
+                    if (data && data.status) {
+                        localStorage.removeItem('nevora_pending_registration');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Registration Complete! 🎉',
+                            text: data.message,
+                            confirmButtonText: 'Go to Dashboard'
+                        }).then(() => {
+                            window.location.href = '/member/dashboard';
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Registration Could Not Complete',
+                            text: data?.message || 'Could not verify transaction on BSC yet. Please wait a moment and refresh.'
+                        });
+                    }
+                }
+            });
+
+            return true;
         } catch (e) {
-            console.error('Pending registration recovery error:', e);
             return false;
-        } finally {
-            isRegistrationActive = false;
         }
     }
 
-    /**
-     * Listener for account changes from injected wallet
-     */
-    function handleAccountsChanged(accounts) {
-        if (accounts && accounts.length > 0) {
-            const address = accounts[0].toLowerCase();
-            const detectedId = getDetectedWalletId() || 'safepal';
-            const walletObj = SUPPORTED_WALLETS.find(w => w.id === detectedId) || SUPPORTED_WALLETS[0];
-
-            state.connectedAddress = address;
-            state.connectedPlatform = walletObj.name;
-            state.connectedPlatformId = walletObj.id;
-            state.isWalletConnect = false;
-
-            localStorage.setItem('nevora_connected_platform', walletObj.name);
-            localStorage.setItem('nevora_connected_platform_id', walletObj.id);
-            localStorage.setItem('nevora_connected_address', address);
-
-            updateRegistrationTopBar(address, walletObj.name, walletObj.iconSvg);
-        } else {
-            disconnectRegistrationWallet();
-        }
-    }
-
-    /**
-     * Disconnect active wallet session specifically on registration page
-     */
-    async function disconnectRegistrationWallet() {
-        await disconnectWallet();
-        updateRegistrationTopBar(null);
-    }
-
-    /**
-     * Restore previous active session on load (Dashboard ONLY - NEVER on Registration)
-     */
+    // 13. Auto Session Restore on Page Load
     async function initAutoSession() {
         try {
-            // STRICT RULE: On the registration page, NEVER auto-connect on load!
-            // The user must explicitly click "Connect Wallet" and choose from the B-TITAN drawer.
-            const isRegistrationPage = typeof document !== 'undefined' && (
-                document.getElementById('register-form') !== null ||
-                window.location.pathname.includes('/register')
-            );
-
-            if (isRegistrationPage) {
-                updateRegistrationTopBar(null);
-                return;
-            }
-
-            // Outside registration (e.g. member dashboard), attach listeners and restore session if present
-            const injected = resolveProvider();
-            if (injected) {
-                const detectedId = getDetectedWalletId() || 'safepal';
-                const walletObj = SUPPORTED_WALLETS.find(w => w.id === detectedId) || SUPPORTED_WALLETS[0];
-
-                if (injected.on) {
-                    try {
-                        injected.removeListener?.('accountsChanged', handleAccountsChanged);
-                        injected.on('accountsChanged', handleAccountsChanged);
-                        injected.on('chainChanged', () => {
-                            window.location.reload();
-                        });
-                    } catch (evErr) {
-                        console.debug('Event listener attach notice:', evErr);
-                    }
-                }
-
-                // Check if account is ALREADY connected in dashboard
-                let accounts = [];
-                try {
-                    accounts = await injected.request({ method: 'eth_accounts' });
-                } catch (e) {
-                    console.debug('eth_accounts check notice:', e);
-                }
-
-                if (accounts && accounts.length > 0) {
-                    const address = accounts[0].toLowerCase();
-                    state.connectedAddress = address;
-                    state.connectedPlatform = walletObj.name;
-                    state.connectedPlatformId = walletObj.id;
-                    state.isWalletConnect = false;
-                    state.activeWCProvider = null;
-
-                    if (window.ethers) {
-                        state.provider = new ethers.BrowserProvider(injected);
-                        state.signer = await state.provider.getSigner().catch(() => null);
-                    }
-
-                    localStorage.setItem('nevora_connected_platform', walletObj.name);
-                    localStorage.setItem('nevora_connected_platform_id', walletObj.id);
-                    localStorage.setItem('nevora_connected_address', address);
-                }
-                return;
-            }
-
-            // Check if there was an active WalletConnect session (Dashboard only)
             const savedAddress = localStorage.getItem('nevora_connected_address');
             const savedPlatform = localStorage.getItem('nevora_connected_platform');
             const savedPlatformId = localStorage.getItem('nevora_connected_platform_id');
 
+            // If inside in-app wallet browser, detect active account
+            if (isInAppWalletBrowser() && window.ethereum) {
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+                if (accounts && accounts.length > 0) {
+                    const addr = accounts[0].toLowerCase();
+                    const detectedWallet = SUPPORTED_WALLETS.find(w => w.id === savedPlatformId) || SUPPORTED_WALLETS[0];
+                    state.connectedAddress = addr;
+                    state.connectedPlatform = detectedWallet.name;
+                    state.connectedPlatformId = detectedWallet.id;
+                    state.isWalletConnect = false;
+
+                    if (window.ethers) {
+                        state.provider = new ethers.BrowserProvider(window.ethereum, BSC_STATIC_NETWORK, { staticNetwork: true });
+                        state.signer = await state.provider.getSigner().catch(() => null);
+                    }
+
+                    updateRegistrationTopBar(addr, detectedWallet.name, detectedWallet.iconSvg);
+                    return;
+                }
+            }
+
+            // Restore from saved storage
             if (savedAddress && savedPlatformId) {
+                const walletObj = SUPPORTED_WALLETS.find(w => w.id === savedPlatformId);
+                const injected = walletObj?.getProvider();
+
+                if (injected) {
+                    const accounts = await injected.request({ method: 'eth_accounts' }).catch(() => []);
+                    if (accounts && accounts.length > 0) {
+                        state.connectedAddress = accounts[0].toLowerCase();
+                        state.connectedPlatform = walletObj.name;
+                        state.connectedPlatformId = walletObj.id;
+                        state.isWalletConnect = false;
+
+                        if (window.ethers) {
+                            state.provider = new ethers.BrowserProvider(injected, BSC_STATIC_NETWORK, { staticNetwork: true });
+                            state.signer = await state.provider.getSigner().catch(() => null);
+                        }
+
+                        updateRegistrationTopBar(state.connectedAddress, walletObj.name, walletObj.iconSvg);
+                        return;
+                    }
+                }
+
+                // Restore WalletConnect session if valid
                 const wc = await getWalletConnectProvider().catch(() => null);
                 if (wc && wc.session && wc.accounts && wc.accounts.length > 0) {
                     state.connectedAddress = wc.accounts[0].toLowerCase();
@@ -1861,9 +1497,11 @@ const NevoraWeb3 = (function () {
                     state.isWalletConnect = true;
 
                     if (window.ethers) {
-                        state.provider = new ethers.BrowserProvider(wc);
+                        state.provider = new ethers.BrowserProvider(wc, BSC_STATIC_NETWORK, { staticNetwork: true });
                         state.signer = await state.provider.getSigner().catch(() => null);
                     }
+
+                    updateRegistrationTopBar(state.connectedAddress, state.connectedPlatform, walletObj?.iconSvg);
                 }
             }
         } catch (e) {
@@ -1871,74 +1509,69 @@ const NevoraWeb3 = (function () {
         }
     }
 
+    // App-Switch Recovery: check pending registration when user refocuses tab
     if (typeof window !== 'undefined') {
-        const runInit = () => { initAutoSession(); };
+        const checkFocus = () => {
+            const raw = localStorage.getItem('nevora_pending_registration');
+            if (raw) {
+                resumePendingRegistration();
+            }
+        };
+        window.addEventListener('focus', checkFocus);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                checkFocus();
+            }
+        });
+
         if (document.readyState === 'loading') {
-            window.addEventListener('DOMContentLoaded', runInit);
+            window.addEventListener('DOMContentLoaded', initAutoSession);
         } else {
-            runInit();
+            initAutoSession();
         }
-        window.addEventListener('ethereum#initialized', runInit, { once: true });
-        window.addEventListener('eip6963:announceProvider', runInit);
-        // Extension content scripts often inject within 100-800ms
-        setTimeout(runInit, 150);
-        setTimeout(runInit, 500);
-        setTimeout(runInit, 1200);
+
+        setTimeout(initAutoSession, 300);
     }
 
+    // 14. Public API Namespace Export
     return {
         SUPPORTED_WALLETS,
-        getState: () => state,
-        resolveProvider,
-        getDetectedWalletId,
-        isMobileDevice,
-        connectByPlatform,
-        connectViaWalletConnect,
-        disconnectWallet,
-        disconnectRegistrationWallet,
-        updateRegistrationIdleBar,
-        updateRegistrationTopBar,
+        getState: () => ({ ...state }),
         showWalletModal,
-        onWalletCardClicked,
-        showQRCodeModal,
-        openPaymentModal,
-        executeTransfer,
+        connectByPlatform,
+        connectViaInjected,
+        connectViaWalletConnect,
+        connectWallet: async (autoBind = true) => {
+            showWalletModal({
+                title: 'Connect Web3 Wallet',
+                subtitle: 'Choose your wallet to link with NEVORA',
+                onSelect: async (walletId, wallet) => {
+                    const res = await connectByPlatform(walletId);
+                    if (res && res.address && autoBind) {
+                        const input = document.getElementById('wallet_address_input') || document.querySelector('.web3-wallet-input');
+                        if (input) {
+                            input.value = res.address;
+                            if (typeof toastr !== 'undefined') toastr.success(`${wallet.name} address linked!`);
+                        }
+                    }
+                }
+            });
+        },
+        disconnectRegistrationWallet: () => disconnectWallet(true),
+        disconnectWallet,
+        updateRegistrationTopBar,
         getUsdtBalance,
         executePayToRegister,
+        openPaymentModal,
         resumePendingRegistration,
         launchNativeScheme,
         getWalletAppScheme,
-        paySlotWithSafePal: (slotNum) => openPaymentModal(slotNum),
-        connectWallet: async (autoBind = true) => {
-            const provider = resolveProvider();
-            if (!provider) {
-                showWalletModal({
-                    title: 'Connect Web3 Wallet',
-                    subtitle: 'Choose your wallet to link with NEVORA',
-                    onSelect: async (walletId, wallet) => {
-                        const res = await connectByPlatform(walletId);
-                        if (res && res.address && autoBind) {
-                            const input = document.getElementById('wallet_address_input') || document.querySelector('.web3-wallet-input');
-                            if (input) {
-                                input.value = res.address;
-                                if (typeof toastr !== 'undefined') toastr.success(`${wallet.name} address linked!`);
-                            }
-                        }
-                    }
-                });
-                return;
-            }
-            const res = await connectByPlatform();
-            if (res && res.address && autoBind) {
-                const input = document.getElementById('wallet_address_input') || document.querySelector('.web3-wallet-input');
-                if (input) {
-                    input.value = res.address;
-                    if (typeof toastr !== 'undefined') toastr.success('Wallet address linked!');
-                }
-            }
-            return res;
-        }
+        getWalletDeepLinks,
+        fetchRpcWithFallback
     };
 })();
 
-window.NevoraWeb3 = NevoraWeb3;
+// Global window registration
+if (typeof window !== 'undefined') {
+    window.NevoraWeb3 = NevoraWeb3;
+}

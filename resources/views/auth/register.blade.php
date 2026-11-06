@@ -497,12 +497,7 @@
 
             // Check for and resume any pending paid registration from interrupted mobile sessions
             if (typeof NevoraWeb3 !== 'undefined') {
-                NevoraWeb3.resumePendingRegistration().then((resumed) => {
-                    if (!resumed) {
-                        // Ensure clean disconnected state on fresh registration load (never auto-connect by default)
-                        NevoraWeb3.disconnectRegistrationWallet();
-                    }
-                });
+                NevoraWeb3.resumePendingRegistration();
             }
 
             // Auto-detect return from mobile wallet app after approving payment

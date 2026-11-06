@@ -22,8 +22,11 @@ class P2PBlockchainService
         $this->rpcUrl = env('BSC_RPC_URL', 'https://bsc-dataseed.binance.org');
         $this->rpcEndpoints = array_values(array_unique([
             $this->rpcUrl,
+            'https://bsc-dataseed.binance.org',
             'https://bsc-dataseed1.defibit.io',
             'https://bsc-dataseed1.ninicoin.io',
+            'https://rpc.ankr.com/bsc',
+            'https://rpc.bscscan.com',
             'https://binance.llamarpc.com',
             'https://bsc.blockpi.network/v1/rpc/public',
         ]));
@@ -137,7 +140,7 @@ class P2PBlockchainService
     protected function verifyViaRpc(string $txHash, string $payer, string $payee, float $expectedAmount): array
     {
         $transferEventSig = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-        $maxAttempts = 3;
+        $maxAttempts = 5;
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             foreach ($this->rpcEndpoints as $rpc) {
@@ -200,9 +203,9 @@ class P2PBlockchainService
                 }
             }
 
-            // Sleep 1.2 seconds between retry attempts to allow block propagation
+            // Sleep 1.5 seconds between retry attempts to allow block propagation
             if ($attempt < $maxAttempts) {
-                usleep(1200000);
+                usleep(1500000);
             }
         }
 

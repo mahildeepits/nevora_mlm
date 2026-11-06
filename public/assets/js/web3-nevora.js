@@ -593,15 +593,25 @@ const NevoraWeb3 = (function () {
     }
 
     // 8. Connection Handlers
+    function normalizeChainId(value) {
+        if (typeof value === 'bigint') return Number(value);
+        if (typeof value === 'number') return value;
+        if (typeof value !== 'string' || value.trim() === '') return NaN;
+
+        const normalized = value.trim().toLowerCase();
+        return normalized.startsWith('0x')
+            ? Number.parseInt(normalized, 16)
+            : Number(normalized);
+    }
+
     async function ensureBscNetwork(provider) {
-        if (!provider || !provider.request) {
+        if (!provider || typeof provider.request !== 'function') {
             throw new Error('The connected wallet does not expose an EVM provider.');
         }
 
-        const readChainId = async () => {
-            const chainId = await provider.request({ method: 'eth_chainId' });
-            return Number.parseInt(chainId, 16);
-        };
+        const readChainId = async () => normalizeChainId(
+            await provider.request({ method: 'eth_chainId' })
+        );
 
         let chainId = await readChainId();
         if (chainId === BSC_CHAIN_ID) return;
@@ -612,8 +622,8 @@ const NevoraWeb3 = (function () {
                 params: [{ chainId: BSC_CHAIN_ID_HEX }]
             });
         } catch (switchError) {
-            if (switchError.code !== 4902) {
-                throw new Error('Please switch your wallet to BNB Smart Chain (Chain ID 56) to continue.');
+            if (Number(switchError?.code) !== 4902) {
+                throw new Error('Please approve switching your wallet to BNB Smart Chain (Chain ID 56) to continue.');
             }
 
             await provider.request({
@@ -626,12 +636,22 @@ const NevoraWeb3 = (function () {
                     blockExplorerUrls: [BLOCK_EXPLORER]
                 }]
             });
+
+            // Adding a network does not necessarily switch to it.
+            await provider.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: BSC_CHAIN_ID_HEX }]
+            });
         }
 
-        chainId = await readChainId();
-        if (chainId !== BSC_CHAIN_ID) {
-            throw new Error('Your wallet is not connected to BNB Smart Chain (Chain ID 56). No payment was sent.');
+        // WalletConnect and mobile wallets can update the active chain asynchronously.
+        for (let attempt = 0; attempt < 5; attempt++) {
+            chainId = await readChainId();
+            if (chainId === BSC_CHAIN_ID) return;
+            await new Promise(resolve => setTimeout(resolve, 300));
         }
+
+        throw new Error('Your wallet is not connected to BNB Smart Chain (Chain ID 56). No payment was sent.');
     }
 
     // Connect via direct injected provider (Fastest, 0ms, used for in-app browsers & desktop extensions)
@@ -682,8 +702,9 @@ const NevoraWeb3 = (function () {
             } catch (e) {}
         }
 
-        // Reuse active session if valid
+        // Reuse active session only after confirming its active chain.
         if (wc.session && wc.accounts && wc.accounts.length > 0 && !forceFresh) {
+            await ensureBscNetwork(wc);
             const address = wc.accounts[0].toLowerCase();
             state.connectedAddress = address;
             state.connectedPlatform = wallet.name;
@@ -756,6 +777,7 @@ const NevoraWeb3 = (function () {
                 throw new Error('No accounts authorized in your wallet.');
             }
 
+            await ensureBscNetwork(wc);
             const address = wc.accounts[0].toLowerCase();
             state.connectedAddress = address;
             state.connectedPlatform = wallet.name;

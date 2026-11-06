@@ -2,6 +2,8 @@ vendor/
 node_modules/
 *.mp4
 .env
+.env.*
+!.env.example
 .htaccess
 storage/framework/
 storage/logs/

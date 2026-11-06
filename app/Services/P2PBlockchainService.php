@@ -96,8 +96,7 @@ class P2PBlockchainService
                             $to = strtolower($tx['to'] ?? '');
                             $contract = strtolower($tx['contractAddress'] ?? '');
                             $decimal = (int) ($tx['tokenDecimal'] ?? 18);
-                            $rawVal = (float) ($tx['value'] ?? 0);
-                            $actualAmount = $rawVal / pow(10, $decimal);
+                            $rawVal = (string) ($tx['value'] ?? '0');
 
                             if ($providedTxHash && strtolower($txHash) !== strtolower($providedTxHash)) {
                                 continue;
@@ -107,7 +106,8 @@ class P2PBlockchainService
                                 $from === $payer &&
                                 $to === $payee &&
                                 $contract === $this->contractAddress &&
-                                abs($actualAmount - $expectedAmount) < 0.05
+                                $this->matchesExpectedAmount($rawVal, $decimal, $expectedAmount) &&
+                                (int) ($tx['confirmations'] ?? 0) >= 12
                             ) {
                                 if (!UnifiedTransaction::where('tx_hash', $txHash)->exists()) {
                                     return [
@@ -115,8 +115,9 @@ class P2PBlockchainService
                                         'tx_hash' => $txHash,
                                         'from' => $from,
                                         'to' => $to,
-                                        'amount' => $actualAmount,
+                                        'amount' => $expectedAmount,
                                         'block_number' => $tx['blockNumber'] ?? null,
+                                        'confirmations' => (int) ($tx['confirmations'] ?? 0),
                                     ];
                                 }
                             }
@@ -179,21 +180,30 @@ class P2PBlockchainService
 
                             $hexVal = ltrim($log['data'] ?? '0x0', '0x');
                             $rawDec = $this->bchexdec($hexVal ?: '0');
-                            $actualAmount = (float) bcdiv($rawDec, '1000000000000000000', 4);
+                            $blockNumber = isset($receipt['blockNumber']) ? hexdec($receipt['blockNumber']) : 0;
+
+                            // Require 12 BSC confirmations before accepting a payment.
+                            $latestBlockHex = $this->rpcRequest($rpc, 'eth_blockNumber', []);
+                            $latestBlock = $latestBlockHex ? hexdec($latestBlockHex) : 0;
+                            $confirmations = $blockNumber > 0 && $latestBlock >= $blockNumber
+                                ? ($latestBlock - $blockNumber + 1)
+                                : 0;
 
                             if (
                                 $contract === $this->contractAddress &&
                                 $logFrom === $payer &&
                                 $logTo === $payee &&
-                                abs($actualAmount - $expectedAmount) < 0.05
+                                $this->matchesExpectedAmount($rawDec, 18, $expectedAmount) &&
+                                $confirmations >= 12
                             ) {
                                 return [
                                     'status' => true,
                                     'tx_hash' => $txHash,
                                     'from' => $logFrom,
                                     'to' => $logTo,
-                                    'amount' => $actualAmount,
-                                    'block_number' => isset($receipt['blockNumber']) ? hexdec($receipt['blockNumber']) : null,
+                                    'amount' => $expectedAmount,
+                                    'block_number' => $blockNumber,
+                                    'confirmations' => $confirmations,
                                 ];
                             }
                         }
@@ -210,6 +220,47 @@ class P2PBlockchainService
         }
 
         return ['status' => false, 'message' => 'Transaction verification via RPC did not match expected amount or payee.'];
+    }
+
+    /**
+     * Compare the token's raw integer units against the expected fee without floats.
+     */
+    protected function matchesExpectedAmount(string $rawValue, int $decimals, float $expectedAmount): bool
+    {
+        if ($decimals < 0 || $decimals > 36 || !ctype_digit($rawValue)) {
+            return false;
+        }
+
+        $scale = bcpow('10', (string) $decimals, 0);
+        $expectedUnits = bcmul(number_format($expectedAmount, 2, '.', ''), $scale, 0);
+
+        return bccomp($rawValue, $expectedUnits, 0) === 0;
+    }
+
+    /**
+     * Perform a JSON-RPC request against a specific endpoint.
+     */
+    protected function rpcRequest(string $rpc, string $method, array $params): ?string
+    {
+        try {
+            $response = Http::timeout(6)->post($rpc, [
+                'jsonrpc' => '2.0',
+                'method' => $method,
+                'params' => $params,
+                'id' => 1,
+            ]);
+
+            if (!$response->successful()) {
+                return null;
+            }
+
+            $result = $response->json('result');
+
+            return is_string($result) ? $result : null;
+        } catch (\\Throwable $th) {
+            Log::warning("BSC RPC request failed for {$rpc}: " . $th->getMessage());
+            return null;
+        }
     }
 
     /**

@@ -501,7 +501,16 @@ const NevoraWeb3 = (function () {
                 const receipt = await fetchRpcWithFallback('eth_getTransactionReceipt', [txHash]);
                 if (receipt && receipt.blockNumber) {
                     if (receipt.status === '0x1') {
-                        return { success: true, receipt };
+                        const latestBlockHex = await fetchRpcWithFallback('eth_blockNumber', []);
+                        const receiptBlock = Number.parseInt(receipt.blockNumber, 16);
+                        const latestBlock = Number.parseInt(latestBlockHex, 16);
+                        const confirmations = latestBlock >= receiptBlock
+                            ? latestBlock - receiptBlock + 1
+                            : 0;
+
+                        if (confirmations >= 12) {
+                            return { success: true, receipt, confirmations };
+                        }
                     } else if (receipt.status === '0x0') {
                         return { success: false, reason: 'Transaction failed or was reverted on BSC.' };
                     }
@@ -585,30 +594,43 @@ const NevoraWeb3 = (function () {
 
     // 8. Connection Handlers
     async function ensureBscNetwork(provider) {
-        if (!provider || !provider.request) return;
+        if (!provider || !provider.request) {
+            throw new Error('The connected wallet does not expose an EVM provider.');
+        }
+
+        const readChainId = async () => {
+            const chainId = await provider.request({ method: 'eth_chainId' });
+            return Number.parseInt(chainId, 16);
+        };
+
+        let chainId = await readChainId();
+        if (chainId === BSC_CHAIN_ID) return;
+
         try {
             await provider.request({
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: BSC_CHAIN_ID_HEX }]
             });
         } catch (switchError) {
-            // 4902: Unrecognized chain
-            if (switchError.code === 4902 || switchError.code === -32603) {
-                try {
-                    await provider.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: BSC_CHAIN_ID_HEX,
-                            chainName: BSC_NAME,
-                            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                            rpcUrls: [BSC_RPC_ENDPOINTS[0]],
-                            blockExplorerUrls: [BLOCK_EXPLORER]
-                        }]
-                    });
-                } catch (addErr) {
-                    console.debug('wallet_addEthereumChain notice:', addErr);
-                }
+            if (switchError.code !== 4902) {
+                throw new Error('Please switch your wallet to BNB Smart Chain (Chain ID 56) to continue.');
             }
+
+            await provider.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                    chainId: BSC_CHAIN_ID_HEX,
+                    chainName: BSC_NAME,
+                    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                    rpcUrls: [BSC_RPC_ENDPOINTS[0]],
+                    blockExplorerUrls: [BLOCK_EXPLORER]
+                }]
+            });
+        }
+
+        chainId = await readChainId();
+        if (chainId !== BSC_CHAIN_ID) {
+            throw new Error('Your wallet is not connected to BNB Smart Chain (Chain ID 56). No payment was sent.');
         }
     }
 
@@ -1001,8 +1023,12 @@ const NevoraWeb3 = (function () {
             const appScheme = getWalletAppScheme(wallet.id);
 
             // Stash pending registration details in localStorage
+            // Never persist passwords or other credentials in browser storage.
+            // Recovery asks the user to re-enter the password after returning from the wallet.
             const pendingReg = {
-                ...formInputs,
+                sponsor_id: formInputs.sponsor_id,
+                name: formInputs.name,
+                email: formInputs.email,
                 wallet_address: connectedAddress,
                 amount: amountUsdt,
                 payee_address: payeeAddress,
@@ -1054,8 +1080,13 @@ const NevoraWeb3 = (function () {
                 throw new Error('Active Web3 wallet provider disconnected. Please reconnect your wallet.');
             }
 
+            await ensureBscNetwork(activeRawProvider);
             const browserProvider = new ethers.BrowserProvider(activeRawProvider, BSC_STATIC_NETWORK, { staticNetwork: true });
             const signer = await browserProvider.getSigner();
+            const signerAddress = (await signer.getAddress()).toLowerCase();
+            if (signerAddress !== connectedAddress.toLowerCase()) {
+                throw new Error('The active wallet account changed. Reconnect the intended wallet before paying.');
+            }
             const usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, BEP20_ABI, signer);
 
             // Fast gas overrides avoid slow estimateGas round-trips over mobile connection
@@ -1083,7 +1114,7 @@ const NevoraWeb3 = (function () {
                     </div>
                     <p class="font-13 text-muted mb-2">Payment broadcasted successfully!</p>
                     <p class="font-monospace font-11 text-muted text-break p-2 bg-light rounded border">${tx.hash}</p>
-                    <small class="text-muted font-11"><i class="fa-solid fa-clock me-1"></i> Confirming block on BSC & activating ID (~3 seconds)...</small>
+                    <small class="text-muted font-11"><i class="fa-solid fa-clock me-1"></i> Waiting for 12 BNB Smart Chain confirmations before account activation...</small>
                 `,
                 allowOutsideClick: false,
                 showConfirmButton: false,
@@ -1091,8 +1122,8 @@ const NevoraWeb3 = (function () {
 
             const pollResult = await pollTransactionReceipt(tx.hash, 45);
 
-            if (!pollResult.success && !pollResult.timeout) {
-                throw new Error(pollResult.reason || 'Transaction could not be confirmed on BNB Smart Chain.');
+            if (!pollResult.success) {
+                throw new Error(pollResult.reason || 'The payment is still awaiting 12 confirmations. Your transaction is saved; return to this page and complete registration once confirmations are reached.');
             }
 
             // 7. Atomic User Registration Submission
@@ -1293,7 +1324,7 @@ const NevoraWeb3 = (function () {
                     </div>
                     <p class="font-13 text-muted mb-2">Payment broadcasted successfully!</p>
                     <p class="font-monospace font-11 text-muted text-break p-2 bg-light rounded border">${tx.hash}</p>
-                    <small class="text-muted font-11"><i class="fa-solid fa-clock me-1"></i> Waiting for BSC block validation...</small>
+                    <small class="text-muted font-11"><i class="fa-solid fa-clock me-1"></i> Waiting for 12 BNB Smart Chain confirmations...</small>
                 `,
                 allowOutsideClick: false,
                 showConfirmButton: false,
@@ -1371,6 +1402,11 @@ const NevoraWeb3 = (function () {
             const pending = JSON.parse(pendingRaw);
             if (!pending || !pending.tx_hash) return false;
 
+            // Clean credentials written by older versions of the registration flow.
+            delete pending.password;
+            delete pending.password_confirmation;
+            localStorage.setItem('nevora_pending_registration', JSON.stringify(pending));
+
             // Expire after 2 hours
             if (Date.now() - pending.timestamp > 2 * 3600 * 1000) {
                 localStorage.removeItem('nevora_pending_registration');
@@ -1391,6 +1427,36 @@ const NevoraWeb3 = (function () {
                 allowOutsideClick: false
             }).then(async (result) => {
                 if (result.isConfirmed) {
+                    const passwordResult = await Swal.fire({
+                        title: 'Confirm Your Registration Password',
+                        input: 'password',
+                        inputLabel: 'Re-enter the password you chose during registration',
+                        inputPlaceholder: 'Registration password',
+                        inputAttributes: { autocomplete: 'new-password', autocapitalize: 'off' },
+                        showCancelButton: true,
+                        confirmButtonText: 'Continue',
+                        inputValidator: (value) => !value ? 'Please enter your registration password.' : undefined
+                    });
+
+                    if (!passwordResult.isConfirmed) return;
+
+                    const confirmationResult = await Swal.fire({
+                        title: 'Confirm Password',
+                        input: 'password',
+                        inputLabel: 'Enter the same password again',
+                        inputPlaceholder: 'Confirm registration password',
+                        inputAttributes: { autocomplete: 'new-password', autocapitalize: 'off' },
+                        showCancelButton: true,
+                        confirmButtonText: 'Finalize Registration',
+                        inputValidator: (value) => {
+                            if (!value) return 'Please confirm your password.';
+                            if (value !== passwordResult.value) return 'The passwords do not match.';
+                            return undefined;
+                        }
+                    });
+
+                    if (!confirmationResult.isConfirmed) return;
+
                     Swal.fire({
                         title: 'Finalizing Account...',
                         html: '<div class="spinner-border text-success my-3" role="status"></div>',
@@ -1399,6 +1465,11 @@ const NevoraWeb3 = (function () {
                     });
 
                     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const recoveryPayload = {
+                        ...pending,
+                        password: passwordResult.value,
+                        password_confirmation: confirmationResult.value
+                    };
                     const res = await fetch('/register', {
                         method: 'POST',
                         headers: {
@@ -1406,7 +1477,7 @@ const NevoraWeb3 = (function () {
                             'Accept': 'application/json',
                             'X-CSRF-TOKEN': csrfToken
                         },
-                        body: JSON.stringify(pending)
+                        body: JSON.stringify(recoveryPayload)
                     });
 
                     const data = await res.json();

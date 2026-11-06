@@ -9,3 +9,4 @@ storage/app/
 bootstrap/cache/
 .vscode/
 scratch/
+public/storage

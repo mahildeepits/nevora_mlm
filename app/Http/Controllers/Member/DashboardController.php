@@ -69,6 +69,11 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
+        // Check if user has an active 3-payment reserved upgrade pending admin payout
+        $pendingUpgrade = \App\Models\SlotUpgrade::where('user_id', $user->id)
+            ->where('status', 'pending')
+            ->first();
+
         return view('member.dashboard', compact(
             'user',
             'earnings',
@@ -81,7 +86,8 @@ class DashboardController extends Controller
             'directsCount',
             'activeDirectsCount',
             'totalDownlineCount',
-            'recentIncomes'
+            'recentIncomes',
+            'pendingUpgrade'
         ));
     }
 

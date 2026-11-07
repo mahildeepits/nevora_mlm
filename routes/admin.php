@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\AnnouncementController;
 use App\Http\Controllers\Admin\TransactionReportController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\SlotUpgradeController;
 
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::controller(AdminAuthController::class)->group(function () {
@@ -41,6 +42,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Unified Transaction Ledger & Reports
         Route::get('/transactions', [TransactionReportController::class, 'index'])->name('transactions.index');
+
+        // Reserved Slot Upgrades & Web3 1-Click Payout
+        Route::controller(SlotUpgradeController::class)->prefix('upgrades')->name('upgrades.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/{upgrade}/pay-and-upgrade', 'payAndUpgrade')->name('pay_and_upgrade');
+        });
 
         // System Settings, SMTP Configuration & Software Data Reset
         Route::controller(SettingController::class)->prefix('settings')->name('settings.')->group(function () {

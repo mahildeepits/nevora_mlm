@@ -7,6 +7,7 @@ use App\Models\Slot;
 use App\Models\SlotPosition;
 use App\Models\RecyclePosition;
 use App\Models\UnifiedTransaction;
+use App\Models\SlotUpgrade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -87,13 +88,29 @@ class MatrixIncomeService
                 'description' => "Payment #{$currentPaymentCount} in Slot {$slot->slot_number} ({$slot->name}) from Member {$payer->member_id}",
             ]);
 
-            // 5. Check Auto-Upgrade to Next Slot upon Payment #5
+            // 5. Check 3 Reserved Payments for Next Slot upon Payment #5
+            // User receives 3 reserved payments (#3, #4, #5) paid directly to Company Wallet.
+            // Admin will execute "Click and Pay" to transfer the $45 USDT to user wallet, then user will be placed in next slot.
             if ($currentPaymentCount === 5 && $slot->slot_number < 12) {
                 $nextSlot = Slot::where('slot_number', $slot->slot_number + 1)->first();
                 if ($nextSlot) {
-                    $this->treePlacementService->placeInAutopool($payeeUser, $nextSlot);
+                    $reservedAmount = (float) ($slot->entry_fee * 3);
+                    SlotUpgrade::firstOrCreate(
+                        [
+                            'user_id' => $payeeUser->id,
+                            'from_slot_number' => $slot->slot_number,
+                        ],
+                        [
+                            'slot_position_id' => $targetPos->id,
+                            'to_slot_number' => $nextSlot->slot_number,
+                            'reserved_amount' => $reservedAmount,
+                            'reserved_payments_count' => 3,
+                            'user_wallet' => $payeeUser->wallet_address,
+                            'status' => 'pending',
+                        ]
+                    );
 
-                    Log::info("User {$payeeUser->member_id} auto-upgraded to Slot {$nextSlot->slot_number}");
+                    Log::info("User {$payeeUser->member_id} completed 3 reserved payments in Slot {$slot->slot_number} ({$reservedAmount} USDT). Queued for Admin Click & Pay to Slot {$nextSlot->slot_number}.");
                 }
             }
 

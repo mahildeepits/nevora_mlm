@@ -283,6 +283,24 @@
              ACTIVE / PAID MEMBER DASHBOARD
              ======================================================== --}}
              
+        @if(!empty($pendingUpgrade))
+            <div class="col-12 mb-4">
+                <div class="card border-0 shadow-sm rounded-4 border-start border-4 border-warning bg-warning bg-opacity-10">
+                    <div class="card-body p-3.5 d-flex align-items-center gap-3">
+                        <div class="rounded-circle bg-warning bg-opacity-20 text-warning p-2.5 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+                            <i class="fa-solid fa-clock-rotate-left font-20"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="fw-bold text-dark mb-0.5">3 Reserved Payments Completed (${{ number_format($pendingUpgrade->reserved_amount, 2) }} USDT)</h6>
+                            <p class="text-muted small mb-0">
+                                Congratulations! You have received all 3 reserved payments in escrow for your Slot {{ $pendingUpgrade->from_slot_number }} matrix. The platform administrator will transfer the <strong>${{ number_format($pendingUpgrade->reserved_amount, 2) }} USDT</strong> payout directly to your BEP-20 wallet ({{ maskAddress($user->wallet_address) }}), which will activate <strong>Slot {{ $pendingUpgrade->to_slot_number }}</strong>.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- Row 1: KPI Stat Cards --}}
         <div class="row g-3 mb-4">
             <!-- 1. Total On-Chain Earnings -->

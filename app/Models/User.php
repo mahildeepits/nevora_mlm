@@ -89,6 +89,11 @@ class User extends Authenticatable
         return $this->hasMany(UnifiedTransaction::class, 'user_id')->latest();
     }
 
+    public function slotUpgrades(): HasMany
+    {
+        return $this->hasMany(SlotUpgrade::class, 'user_id')->latest();
+    }
+
     public function getProfileImageUrlAttribute(): string
     {
         if ($this->profile_image) {
@@ -103,19 +108,29 @@ class User extends Authenticatable
     {
         $slotIncome = $this->unifiedTransactions()
             ->where('category', 'Slot Income')
+            ->where('transaction_type', 'Credit')
             ->where('status', 'Completed')
             ->sum('amount');
 
         $recycleIncome = $this->unifiedTransactions()
             ->where('category', 'Recycle Income')
+            ->where('transaction_type', 'Credit')
             ->where('status', 'Completed')
             ->sum('amount');
 
-        $reservedAmount = $this->unifiedTransactions()
+        $reservedCredits = $this->unifiedTransactions()
             ->where('category', 'Reserved for Next Slot')
+            ->where('transaction_type', 'Credit')
             ->where('status', 'Completed')
             ->sum('amount');
 
+        $reservedDebits = $this->unifiedTransactions()
+            ->where('category', 'Reserved for Next Slot')
+            ->where('transaction_type', 'Debit')
+            ->where('status', 'Completed')
+            ->sum('amount');
+
+        $reservedAmount = max(0, (float) ($reservedCredits - $reservedDebits));
         $totalEarnings = $slotIncome + $recycleIncome;
 
         return [

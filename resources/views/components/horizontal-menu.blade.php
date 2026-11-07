@@ -32,6 +32,18 @@
                </a>
             </li>
             <li class="nav-item">
+               <a class="nav-link {{ Route::is('admin.upgrades*') ? 'active' : '' }}"
+                  href="{{ route('admin.upgrades.index') }}">
+                  <i class="fa-solid fa-arrow-up-right-dots me-1 text-warning"></i> Reserved Upgrades
+                  @php
+                     $pendingUpgradesCount = \App\Models\SlotUpgrade::where('status', 'pending')->count();
+                  @endphp
+                  @if($pendingUpgradesCount > 0)
+                     <span class="badge bg-danger rounded-pill font-11 ms-1 px-2 py-0.5">{{ $pendingUpgradesCount }}</span>
+                  @endif
+               </a>
+            </li>
+            <li class="nav-item">
                <a class="nav-link {{ Route::is('admin.transactions*') ? 'active' : '' }}"
                   href="{{ route('admin.transactions.index') }}">
                   <i class="fa-solid fa-receipt me-1"></i> Unified Ledger

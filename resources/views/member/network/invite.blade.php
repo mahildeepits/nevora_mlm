@@ -25,12 +25,28 @@
                     </div>
 
                     @if($user->is_paid)
+                        @if($user->hasReachedSponsorLimit())
+                            <div class="alert alert-warning border-0 rounded-4 p-3 mb-3 d-flex align-items-center gap-2 font-12 fw-semibold">
+                                <i class="fa-solid fa-circle-exclamation text-warning font-18 flex-shrink-0"></i>
+                                <div>
+                                    <strong>Direct Referral Limit Reached (3 / 3):</strong> You have completed your maximum quota of 3 direct sponsored members. Your link cannot accept new direct signups.
+                                </div>
+                            </div>
+                        @elseif(!$user->isEligibleForIncome())
+                            <div class="alert alert-danger border-0 rounded-4 p-3 mb-3 d-flex align-items-center gap-2 font-12 fw-semibold" style="background: rgba(239, 68, 68, 0.08);">
+                                <i class="fa-solid fa-triangle-exclamation text-danger font-18 flex-shrink-0"></i>
+                                <div>
+                                    <strong>Payment Receiving Qualification ({{ $user->activeDirects()->count() }}/2 Directs):</strong> You must sponsor at least 2 active direct members to receive payments into your personal wallet. Downline payments generated before meeting this condition are diverted to the company wallet.
+                                </div>
+                            </div>
+                        @endif
+
                         {{-- Copy Link Group --}}
                         <div class="mb-4">
                             <label class="form-label font-12 fw-bold text-muted text-uppercase mb-1.5">Referral URL</label>
                             <div class="input-group">
                                 <input type="text" id="invite-ref-link" class="form-control font-monospace font-13 bg-light" value="{{ $refLink }}" readonly>
-                                <button class="btn btn-primary px-3 fw-bold" type="button" onclick="copyInviteLink()">
+                                <button class="btn btn-primary px-3 fw-bold" type="button" onclick="copyInviteLink()" {{ $user->hasReachedSponsorLimit() ? 'disabled' : '' }}>
                                     <i class="fa-solid fa-copy me-1"></i> Copy Link
                                 </button>
                             </div>
@@ -120,8 +136,17 @@
                             <i class="fa-solid fa-users font-18"></i>
                         </div>
                         <div>
-                            <span class="text-muted font-11 text-uppercase fw-semibold d-block">Total Directs</span>
-                            <h3 class="fw-bold mb-0 text-dark">{{ $directsCount }}</h3>
+                            <span class="text-muted font-11 text-uppercase fw-semibold d-block">Direct Referrals Quota</span>
+                            <h3 class="fw-bold mb-0 text-dark">
+                                @if($user->isExemptAccount())
+                                    {{ $directsCount }} <span class="font-12 text-muted fw-normal">(Unlimited)</span>
+                                @else
+                                    {{ $directsCount }} / 3
+                                    @if($user->hasReachedSponsorLimit())
+                                        <span class="badge bg-warning text-dark font-10 ms-1">Full</span>
+                                    @endif
+                                @endif
+                            </h3>
                         </div>
                     </div>
                 </div>

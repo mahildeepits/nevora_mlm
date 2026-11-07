@@ -106,11 +106,13 @@ class AuthController extends Controller
 
         // If sponsorId is not specified in URL, but a user is logged in, default sponsorId to the logged in user
         if (!$sponsorId && $loggedInUser && $loggedInUser->is_paid) {
-            $sponsorId = $loggedInUser->member_id;
-            $sponsorName = $loggedInUser->name;
+            if (!$loggedInUser->hasReachedSponsorLimit()) {
+                $sponsorId = $loggedInUser->member_id;
+                $sponsorName = $loggedInUser->name;
+            }
         } elseif ($sponsorId) {
             $sponsor = User::where('member_id', $sponsorId)->first();
-            if ($sponsor && $sponsor->is_paid) {
+            if ($sponsor && $sponsor->is_paid && !$sponsor->hasReachedSponsorLimit()) {
                 $sponsorName = $sponsor->name;
             } else {
                 $sponsorId = null;
@@ -136,6 +138,11 @@ class AuthController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        $sponsor = User::where('member_id', trim($request->sponsor_id))->first();
+        if ($sponsor && $sponsor->hasReachedSponsorLimit()) {
+            return response()->json(['status' => false, 'message' => "Sponsor Member ID {$sponsor->member_id} has already reached the maximum limit of 3 direct referrals."], 422);
         }
 
         $token = Str::random(32);
@@ -179,6 +186,13 @@ class AuthController extends Controller
             return response()->json(['status' => false, 'message' => 'This sponsor account is inactive. Only active members can refer.']);
         }
 
+        if ($sponsor->hasReachedSponsorLimit()) {
+            return response()->json([
+                'status' => false,
+                'message' => "Sponsor Member ID {$sponsor->member_id} has already reached the maximum limit of 3 direct referrals.",
+            ]);
+        }
+
         return response()->json([
             'status' => true,
             'sponsor_name' => $sponsor->name,
@@ -198,6 +212,13 @@ class AuthController extends Controller
         $sponsor = User::where('member_id', $sponsorId)->first();
         if (!$sponsor || !$sponsor->is_paid) {
             $sponsor = User::where('member_id', 'COMPANY01')->firstOrFail();
+        }
+
+        if ($sponsor->hasReachedSponsorLimit()) {
+            return response()->json([
+                'status' => false,
+                'message' => "Sponsor Member ID {$sponsor->member_id} has already reached the maximum limit of 3 direct referrals.",
+            ], 422);
         }
 
         $routing = $this->paymentRouteService->resolvePayeeForNewRegistration($sponsor->member_id, $slotNumber);
@@ -274,6 +295,14 @@ class AuthController extends Controller
         $sponsor = User::where('member_id', $request->sponsor_id)->first();
         if (!$sponsor || !$sponsor->is_paid) {
             $msg = 'Invalid sponsor. Only active/paid members can refer new members.';
+            return ($request->expectsJson() || $request->ajax())
+                ? response()->json(['status' => false, 'message' => $msg], 422)
+                : back()->withErrors(['sponsor_id' => $msg])->withInput();
+        }
+
+        // Rule: Max 3 direct referrals limit per user (exempt accounts like COMPANY01 & MEMBER01 are exempt)
+        if ($sponsor->hasReachedSponsorLimit()) {
+            $msg = "Sponsor Member ID {$sponsor->member_id} has already reached the maximum limit of 3 direct referrals.";
             return ($request->expectsJson() || $request->ajax())
                 ? response()->json(['status' => false, 'message' => $msg], 422)
                 : back()->withErrors(['sponsor_id' => $msg])->withInput();

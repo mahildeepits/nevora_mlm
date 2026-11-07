@@ -301,6 +301,52 @@
             </div>
         @endif
 
+        {{-- Direct Referrals & Payment Qualification Status Banner --}}
+        @if(!$isEligibleForIncome)
+            <div class="col-12 mb-4">
+                <div class="card border-0 shadow-sm rounded-4 border-start border-4 border-danger" style="background: rgba(239, 68, 68, 0.08);">
+                    <div class="card-body p-3.5 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-danger bg-opacity-20 text-danger p-2.5 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+                                <i class="fa-solid fa-triangle-exclamation font-20"></i>
+                            </div>
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                    <h6 class="fw-bold text-danger mb-0">Payment Receiving Qualification: Ineligible ({{ $activeDirectsCount }}/2 Directs)</h6>
+                                    <span class="badge bg-danger text-white rounded-pill px-2.5 py-1 font-11">Action Required</span>
+                                </div>
+                                <p class="text-muted small mb-0">
+                                    You must sponsor at least <strong>2 active direct members</strong> to unlock payments into your Web3 wallet. You currently have <strong>{{ $activeDirectsCount }} / 2</strong> active direct referral(s). Any downline matrix payments generated before meeting this requirement are automatically diverted to the <strong>Company Revenue Wallet</strong>.
+                                </p>
+                            </div>
+                        </div>
+                        @if(!$hasReachedSponsorLimit)
+                            <a href="{{ route('member.network.invite') }}" class="btn btn-danger btn-sm rounded-pill px-3 py-1.5 fw-bold text-nowrap">
+                                <i class="fa-solid fa-user-plus me-1"></i> Sponsor Directs
+                            </a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        @elseif(!$isExempt)
+            <div class="col-12 mb-4">
+                <div class="card border-0 shadow-sm rounded-4 border-start border-4 border-success" style="background: rgba(16, 185, 129, 0.08);">
+                    <div class="card-body py-2.5 px-3.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2.5">
+                            <i class="fa-solid fa-circle-check text-success font-18"></i>
+                            <div>
+                                <span class="fw-bold text-dark font-13">Payment Receiving Qualified:</span>
+                                <span class="text-muted font-12 ms-1">You have met the minimum 2 active direct referrals requirement ({{ $activeDirectsCount }} Directs). All matrix and downline payments route directly to your personal Web3 wallet.</span>
+                            </div>
+                        </div>
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1 font-11 fw-bold">
+                            <i class="fa-solid fa-shield-check me-1"></i> 100% Payout Active
+                        </span>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- Row 1: KPI Stat Cards --}}
         <div class="row g-3 mb-4">
             <!-- 1. Total On-Chain Earnings -->
@@ -446,11 +492,16 @@
                             <p class="text-muted font-12 mb-3">Share your referral link to expand your 3-Matrix team.</p>
 
                             @php $refLink = route('member.register.form', ['sponsor' => $user->member_id]); @endphp
+                            @if($hasReachedSponsorLimit)
+                                <div class="alert alert-warning py-2 px-3 rounded-3 font-11 mb-2 fw-semibold">
+                                    <i class="fa-solid fa-circle-exclamation me-1"></i> You have reached your maximum limit of 3 direct referrals (3/3). Your link cannot accept new direct signups.
+                                </div>
+                            @endif
                             <div class="mb-3">
                                 <label class="form-label font-11 text-muted fw-semibold">Your Unique Link</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control font-12 bg-light border-end-0" id="ref-link-input" value="{{ $refLink }}" readonly>
-                                    <button class="btn btn-primary px-3" type="button" onclick="copyText('ref-link-input')">
+                                    <button class="btn btn-primary px-3" type="button" onclick="copyText('ref-link-input')" {{ $hasReachedSponsorLimit ? 'disabled' : '' }}>
                                         <i class="fa-solid fa-copy me-1"></i> Copy
                                     </button>
                                 </div>
@@ -460,13 +511,21 @@
                                 <div class="col-4">
                                     <div class="p-2 border-end">
                                         <span class="text-muted font-10 d-block">Direct Sponsors</span>
-                                        <h6 class="fw-bold text-dark mb-0 mt-1">{{ $directsCount }}</h6>
+                                        <h6 class="fw-bold text-dark mb-0 mt-1">
+                                            @if($isExempt)
+                                                {{ $directsCount }}
+                                            @else
+                                                {{ $directsCount }}/3
+                                            @endif
+                                        </h6>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="p-2 border-end">
                                         <span class="text-muted font-10 d-block">Active Directs</span>
-                                        <h6 class="fw-bold text-success mb-0 mt-1">{{ $activeDirectsCount }}</h6>
+                                        <h6 class="fw-bold {{ $activeDirectsCount >= 2 ? 'text-success' : 'text-danger' }} mb-0 mt-1">
+                                            {{ $activeDirectsCount }}{{ !$isExempt ? '/2 req' : '' }}
+                                        </h6>
                                     </div>
                                 </div>
                                 <div class="col-4">

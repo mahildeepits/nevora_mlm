@@ -54,6 +54,53 @@ class User extends Authenticatable
         return $this->role_id === 1;
     }
 
+    /**
+     * Check if this user is a system exempt account (COMPANY01, MEMBER01, ADMIN01, or admin role)
+     * Exempt accounts are not restricted by the 3 direct limit and are always income eligible.
+     */
+    public function isExemptAccount(): bool
+    {
+        return in_array($this->member_id, ['COMPANY01', 'MEMBER01', 'ADMIN01']) || $this->role_id === 1;
+    }
+
+    /**
+     * Check if user is eligible to receive payments/income.
+     * Requires at least 2 active direct referrals (unless an exempt account).
+     */
+    public function isEligibleForIncome(): bool
+    {
+        if ($this->isExemptAccount()) {
+            return true;
+        }
+
+        return $this->activeDirects()->count() >= 2;
+    }
+
+    /**
+     * Check if user has reached the maximum allowed direct referrals (max 3).
+     * Exempt accounts (COMPANY01, MEMBER01) have no limit.
+     */
+    public function hasReachedSponsorLimit(): bool
+    {
+        if ($this->isExemptAccount()) {
+            return false;
+        }
+
+        return $this->directs()->count() >= 3;
+    }
+
+    /**
+     * Formatted direct sponsor quota string (e.g. "2 / 3" or "Unlimited")
+     */
+    public function getDirectQuotaAttribute(): string
+    {
+        if ($this->isExemptAccount()) {
+            return 'Unlimited';
+        }
+
+        return $this->directs()->count() . ' / 3';
+    }
+
     public function sponsor(): BelongsTo
     {
         return $this->belongsTo(self::class, 'sponsor_id', 'member_id');

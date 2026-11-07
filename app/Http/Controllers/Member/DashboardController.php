@@ -74,6 +74,10 @@ class DashboardController extends Controller
             ->where('status', 'pending')
             ->first();
 
+        $isEligibleForIncome = $user->isEligibleForIncome();
+        $hasReachedSponsorLimit = $user->hasReachedSponsorLimit();
+        $isExempt = $user->isExemptAccount();
+
         return view('member.dashboard', compact(
             'user',
             'earnings',
@@ -87,7 +91,10 @@ class DashboardController extends Controller
             'activeDirectsCount',
             'totalDownlineCount',
             'recentIncomes',
-            'pendingUpgrade'
+            'pendingUpgrade',
+            'isEligibleForIncome',
+            'hasReachedSponsorLimit',
+            'isExempt'
         ));
     }
 

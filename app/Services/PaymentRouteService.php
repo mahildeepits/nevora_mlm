@@ -73,19 +73,31 @@ class PaymentRouteService
         $companyReserveWallet = getSetting('company_reserve_wallet', env('COMPANY_RESERVE_WALLET', '0x1111111111111111111111111111111111111111'));
         $companyRevenueWallet = getSetting('company_revenue_wallet', env('COMPANY_REVENUE_WALLET', '0x2222222222222222222222222222222222222222'));
 
-        $destinationWallet = $payeeUser->wallet_address;
-        $category = 'Slot Income';
-        $isCompanyWallet = false;
+        $isEligible = $payeeUser->isEligibleForIncome();
+        $isIneligibleDiverted = false;
 
-        if ($slot->slot_number < 12) {
-            if (in_array($nextPaymentNumber, [3, 4, 5])) {
-                // Payments #3, #4, #5: Reserved for next slot
-                $destinationWallet = $companyReserveWallet;
-                $category = 'Reserved for Next Slot';
-                $isCompanyWallet = true;
-            } elseif ($nextPaymentNumber == 13) {
-                // Payment #13: Recycle Pool
-                $category = 'Recycle Income';
+        if (!$isEligible) {
+            // Rule: User must have at least 2 active directs to receive payments.
+            // If < 2 directs, payment is diverted to Company Revenue Wallet.
+            $destinationWallet = $companyRevenueWallet;
+            $category = 'Company Deduction';
+            $isCompanyWallet = true;
+            $isIneligibleDiverted = true;
+        } else {
+            $destinationWallet = $payeeUser->wallet_address;
+            $category = 'Slot Income';
+            $isCompanyWallet = false;
+
+            if ($slot->slot_number < 12) {
+                if (in_array($nextPaymentNumber, [3, 4, 5])) {
+                    // Payments #3, #4, #5: Reserved for next slot
+                    $destinationWallet = $companyReserveWallet;
+                    $category = 'Reserved for Next Slot';
+                    $isCompanyWallet = true;
+                } elseif ($nextPaymentNumber == 13) {
+                    // Payment #13: Recycle Pool
+                    $category = 'Recycle Income';
+                }
             }
         }
 
@@ -103,6 +115,8 @@ class PaymentRouteService
             'category' => $category,
             'payment_number' => $nextPaymentNumber,
             'is_company_wallet' => $isCompanyWallet,
+            'is_ineligible_diverted' => $isIneligibleDiverted,
+            'is_eligible' => $isEligible,
         ];
     }
 
@@ -160,17 +174,29 @@ class PaymentRouteService
         $companyReserveWallet = getSetting('company_reserve_wallet', env('COMPANY_RESERVE_WALLET', '0x1111111111111111111111111111111111111111'));
         $companyRevenueWallet = getSetting('company_revenue_wallet', env('COMPANY_REVENUE_WALLET', '0x2222222222222222222222222222222222222222'));
 
-        $destinationWallet = $payeeUser->wallet_address;
-        $category = 'Slot Income';
-        $isCompanyWallet = false;
+        $isEligible = $payeeUser->isEligibleForIncome();
+        $isIneligibleDiverted = false;
 
-        if ($slot->slot_number < 12) {
-            if (in_array($nextPaymentNumber, [3, 4, 5])) {
-                $destinationWallet = $companyReserveWallet;
-                $category = 'Reserved for Next Slot';
-                $isCompanyWallet = true;
-            } elseif ($nextPaymentNumber == 13) {
-                $category = 'Recycle Income';
+        if (!$isEligible) {
+            // Rule: User must have at least 2 active directs to receive payments.
+            // If < 2 directs, payment is diverted to Company Revenue Wallet.
+            $destinationWallet = $companyRevenueWallet;
+            $category = 'Company Deduction';
+            $isCompanyWallet = true;
+            $isIneligibleDiverted = true;
+        } else {
+            $destinationWallet = $payeeUser->wallet_address;
+            $category = 'Slot Income';
+            $isCompanyWallet = false;
+
+            if ($slot->slot_number < 12) {
+                if (in_array($nextPaymentNumber, [3, 4, 5])) {
+                    $destinationWallet = $companyReserveWallet;
+                    $category = 'Reserved for Next Slot';
+                    $isCompanyWallet = true;
+                } elseif ($nextPaymentNumber == 13) {
+                    $category = 'Recycle Income';
+                }
             }
         }
 
@@ -187,6 +213,8 @@ class PaymentRouteService
             'category' => $category,
             'payment_number' => $nextPaymentNumber,
             'is_company_wallet' => $isCompanyWallet,
+            'is_ineligible_diverted' => $isIneligibleDiverted,
+            'is_eligible' => $isEligible,
         ];
     }
 
@@ -260,8 +288,16 @@ class PaymentRouteService
         $destinationWallet = $payeeUser->wallet_address;
         $category = 'Recycle Income';
         $isCompanyWallet = false;
+        $isEligible = $payeeUser->isEligibleForIncome();
+        $isIneligibleDiverted = false;
 
-        if (in_array($nextPaymentNumber, [5, 12])) {
+        if (!$isEligible) {
+            // Ineligible member: divert recycle payment to Company Revenue
+            $destinationWallet = $companyRevenueWallet;
+            $category = 'Company Deduction';
+            $isCompanyWallet = true;
+            $isIneligibleDiverted = true;
+        } elseif (in_array($nextPaymentNumber, [5, 12])) {
             // Payments #5 and #12 in Recycle Pools go to Company Revenue
             $destinationWallet = $companyRevenueWallet;
             $category = 'Company Deduction';
@@ -281,6 +317,8 @@ class PaymentRouteService
             'category' => $category,
             'payment_number' => $nextPaymentNumber,
             'is_company_wallet' => $isCompanyWallet,
+            'is_ineligible_diverted' => $isIneligibleDiverted,
+            'is_eligible' => $isEligible,
         ];
     }
 

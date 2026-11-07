@@ -43,14 +43,25 @@
     {{-- Directs Table Card --}}
     <div class="col-12">
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center py-3">
-                <h5 class="fw-bold mb-0 text-primary">
-                    <i class="fa-solid fa-users me-2"></i> Direct Members ({{ $directs->total() }})
-                </h5>
-                @if(authUser()->is_paid)
+            <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="fw-bold mb-0 text-primary">
+                        <i class="fa-solid fa-users me-2"></i> Direct Members ({{ $directs->total() }}{{ !authUser()->isExemptAccount() ? ' / 3 Max' : '' }})
+                    </h5>
+                    @if(authUser()->hasReachedSponsorLimit())
+                        <span class="badge bg-warning text-dark font-11 px-2.5 py-1 rounded-pill">
+                            <i class="fa-solid fa-lock me-1"></i> Quota Full (3/3)
+                        </span>
+                    @endif
+                </div>
+                @if(authUser()->is_paid && !authUser()->hasReachedSponsorLimit())
                     <a href="{{ route('member.register.form', ['sponsor' => authUser()->member_id]) }}" target="_blank" class="btn btn-sm btn-primary rounded-pill px-3">
                         <i class="fa-solid fa-user-plus me-1"></i> Invite New Member
                     </a>
+                @elseif(authUser()->hasReachedSponsorLimit())
+                    <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3" disabled title="Direct referral quota of 3 members reached">
+                        <i class="fa-solid fa-ban me-1"></i> Sponsor Limit Reached (3/3)
+                    </button>
                 @endif
             </div>
 

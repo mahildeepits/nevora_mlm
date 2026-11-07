@@ -73,6 +73,11 @@ class MatrixIncomeService
             ]);
 
             // 4b. Log Credit Transaction for Payee
+            $isIneligible = $routing['is_ineligible_diverted'] ?? false;
+            $payeeDescription = $isIneligible
+                ? "Payment #{$currentPaymentCount} in Slot {$slot->slot_number} ({$slot->name}) diverted to Company Wallet - Member {$payeeUser->member_id} does not have required 2 direct referrals"
+                : "Payment #{$currentPaymentCount} in Slot {$slot->slot_number} ({$slot->name}) from Member {$payer->member_id}";
+
             UnifiedTransaction::create([
                 'user_id' => $payeeUser->id,
                 'from_user_id' => $payer->id,
@@ -85,13 +90,14 @@ class MatrixIncomeService
                 'tx_hash' => $txHash,
                 'from_address' => $payer->wallet_address,
                 'to_address' => $routing['wallet_address'],
-                'description' => "Payment #{$currentPaymentCount} in Slot {$slot->slot_number} ({$slot->name}) from Member {$payer->member_id}",
+                'description' => $payeeDescription,
             ]);
 
             // 5. Check 3 Reserved Payments for Next Slot upon Payment #5
             // User receives 3 reserved payments (#3, #4, #5) paid directly to Company Wallet.
             // Admin will execute "Click and Pay" to transfer the $45 USDT to user wallet, then user will be placed in next slot.
-            if ($currentPaymentCount === 5 && $slot->slot_number < 12) {
+            // Only eligible if payee wasn't disqualified for lack of 2 directs
+            if (!$isIneligible && $currentPaymentCount === 5 && $slot->slot_number < 12) {
                 $nextSlot = Slot::where('slot_number', $slot->slot_number + 1)->first();
                 if ($nextSlot) {
                     $reservedAmount = (float) ($slot->entry_fee * 3);
@@ -176,6 +182,11 @@ class MatrixIncomeService
             ]);
 
             // Credit for Payee
+            $isIneligible = $routing['is_ineligible_diverted'] ?? false;
+            $recyclePayeeDesc = $isIneligible
+                ? "Recycle Payment #{$currentPaymentCount} (Cycle {$targetPos->cycle_number}) in Slot {$slot->slot_number} diverted to Company Wallet - Member {$payeeUser->member_id} does not have required 2 direct referrals"
+                : "Recycle Payment #{$currentPaymentCount} (Cycle {$targetPos->cycle_number}) in Slot {$slot->slot_number} from Member {$payer->member_id}";
+
             UnifiedTransaction::create([
                 'user_id' => $payeeUser->id,
                 'from_user_id' => $payer->id,
@@ -188,7 +199,7 @@ class MatrixIncomeService
                 'tx_hash' => $txHash,
                 'from_address' => $payer->wallet_address,
                 'to_address' => $routing['wallet_address'],
-                'description' => "Recycle Payment #{$currentPaymentCount} (Cycle {$targetPos->cycle_number}) in Slot {$slot->slot_number} from Member {$payer->member_id}",
+                'description' => $recyclePayeeDesc,
             ]);
 
             // Re-cycle entry upon Payment #13
